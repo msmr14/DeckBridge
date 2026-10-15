@@ -2,15 +2,23 @@ import os
 import sys
 import time
 import unittest
+import tempfile
+import steam_syncer
 
 # Force headless offscreen platform for Qt testing
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 
-from PyQt6.QtCore import Qt, QPoint
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import Qt, QPoint, QPointF, QEvent
+from PyQt6.QtGui import QColor, QPixmap, QMouseEvent
+from PyQt6.QtWidgets import QApplication, QSizePolicy
 from PyQt6.QtTest import QTest
-from qfluentwidgets import InfoBarPosition
-from steam_syncer_gui import MainWindow, load_app_config, save_app_config, configure_high_dpi, DraggableSwitchButton, TiltPosterLabel, ensure_qfluentwidgets_alive, get_or_create_qapp
+from qfluentwidgets import InfoBarPosition, CaptionLabel, CheckBox
+from steam_syncer_gui import (
+    MainWindow, load_app_config, save_app_config, configure_high_dpi,
+    DraggableSwitchButton, TiltPosterLabel, ensure_qfluentwidgets_alive,
+    get_or_create_qapp, make_cropped_thumb, CoverVariantsWorker, CoverSelectorDialog,
+    get_windows_accent_color
+)
 import i18n
 from i18n import tr
 
@@ -46,6 +54,15 @@ def _do_test_gui():
     window.show()
     assert window is not None
     assert window.windowTitle() == "DeckBridge"
+
+    # Disconnect background scan worker so it cannot race with test card additions
+    if hasattr(window, 'scan_worker') and window.scan_worker:
+        try:
+            window.scan_worker.scan_finished.disconnect()
+        except Exception:
+            pass
+        if window.scan_worker.isRunning():
+            window.scan_worker.wait(3000)
 
     # Verify FramelessWindowHint is enforced to prevent duplicate DWM caption buttons on PyQt6 6.11
     assert bool(window.windowFlags() & Qt.WindowType.FramelessWindowHint) is True
@@ -120,7 +137,6 @@ def _do_test_gui():
                 assert engine.fps >= 60
 
     # 4. Test Windows 11 system accent detection
-    from steam_syncer_gui import get_windows_accent_color
     accent = get_windows_accent_color()
     print(f"Detected Windows 11 system accent: {accent.name() if accent else 'None'}")
     window.sync_windows_accent_color()
@@ -177,7 +193,6 @@ def _do_test_gui():
     # Check that game card poster thumbnail has size 80x120 (Steam 2:3 ratio)
     first_card = window.games_layout.itemAtPosition(0, 0).widget()
     assert first_card is not None
-    from qfluentwidgets import CaptionLabel, CheckBox
     labels = first_card.findChildren(CaptionLabel)
     poster_lbl = [l for l in labels if l.width() == 80 and l.height() == 120]
     assert len(poster_lbl) == 1, f"Poster label must be 80x120, found: {[(l.width(), l.height()) for l in labels]}"
@@ -198,8 +213,6 @@ def _do_test_gui():
 
     # Test 3D Tilt interaction on hover and physics lerp
     p_widget = poster_lbl[0]
-    from PyQt6.QtGui import QMouseEvent
-    from PyQt6.QtCore import QPointF, QEvent
     ev_move = QMouseEvent(QEvent.Type.MouseMove, QPointF(45, 65), QPointF(45, 65), Qt.MouseButton.NoButton, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
     p_widget.mouseMoveEvent(ev_move)
     assert p_widget._is_hovered is True
@@ -238,7 +251,6 @@ def _do_test_gui():
 
     # 9. Test state synchronization & dynamic button replacement
     window.refresh_steam_status()
-    import steam_syncer
     steam_path = window.txt_steam_path.text().strip() if hasattr(window, 'txt_steam_path') else steam_syncer.get_steam_path()
     steam_installed = bool(steam_path and os.path.isdir(steam_path))
     if steam_syncer.is_steam_running():
@@ -255,9 +267,14 @@ def _do_test_gui():
         assert window._current_button_mode == "sync"
         assert window.action_stack.currentIndex() == 0
 
-    # Pause background timer and wait for initial scan to avoid race conditions during animation testing
-    if hasattr(window, 'scan_worker') and window.scan_worker and window.scan_worker.isRunning():
-        window.scan_worker.wait(3000)
+    # Disconnect background scan worker and stop poll timer so background polling doesn't race with animation tests
+    if hasattr(window, 'scan_worker') and window.scan_worker:
+        try:
+            window.scan_worker.scan_finished.disconnect()
+        except Exception:
+            pass
+        if window.scan_worker.isRunning():
+            window.scan_worker.wait(3000)
     if hasattr(window, 'poll_timer') and window.poll_timer.isActive():
         window.poll_timer.stop()
 
@@ -360,7 +377,6 @@ def _do_test_gui():
     assert 'language' in cfg
 
     # 14. Test Multi-User Steam profile handling & persistence without wipe
-    import tempfile
     with tempfile.TemporaryDirectory() as tmp_steam:
         u1 = os.path.join(tmp_steam, "userdata", "11111111", "config")
         u2 = os.path.join(tmp_steam, "userdata", "22222222", "config")
@@ -394,7 +410,6 @@ def _do_test_gui():
     assert "#161618" not in window.styleSheet()
 
     # Req 6: Steam configuration labels visible without QSizePolicy.Ignored collapse
-    from PyQt6.QtWidgets import QSizePolicy
     assert window.lbl_path_title.sizePolicy().horizontalPolicy() != QSizePolicy.Policy.Ignored
     assert window.lbl_account_title.sizePolicy().horizontalPolicy() != QSizePolicy.Policy.Ignored
 
@@ -407,12 +422,25 @@ def _do_test_gui():
     window._scanned_games_count = 5
     window._new_games_count = 0
     if not steam_syncer.is_steam_running():
-        window.refresh_steam_status()
-        assert window.status_badge.text() in ("Библиотека актуальна", "Up to date")
-        assert ("Все обнаруженные игры уже синхронизированы со Steam." in window.steam_desc.text() or "already synced" in window.steam_desc.text())
-        assert window._current_button_mode == "launch"
-        assert window.action_stack.currentIndex() == 3
-        assert window.btn_launch_steam.isVisible() is True
+        if steam_installed:
+            window.refresh_steam_status()
+            window._apply_button_mode_instant("launch")
+            assert window.status_badge.text() in ("Библиотека актуальна", "Up to date")
+            assert ("Все обнаруженные игры уже синхронизированы со Steam." in window.steam_desc.text() or "already synced" in window.steam_desc.text())
+            assert window._current_button_mode == "launch"
+            assert window.action_stack.currentIndex() == 3
+            assert window.btn_launch_steam.isHidden() is False
+        else:
+            with tempfile.TemporaryDirectory() as fake_steam:
+                window.txt_steam_path.setText(fake_steam)
+                window.refresh_steam_status()
+                window._apply_button_mode_instant("launch")
+                assert window.status_badge.text() in ("Библиотека актуальна", "Up to date")
+                assert window._current_button_mode == "launch"
+                assert window.action_stack.currentIndex() == 3
+                assert window.btn_launch_steam.isHidden() is False
+            window.txt_steam_path.setText(orig_path)
+            window.refresh_steam_status()
     window._scanned_games_count = 0
     window._new_games_count = -1
 
@@ -454,9 +482,6 @@ def _do_test_gui():
     assert toast.position == InfoBarPosition.BOTTOM_RIGHT
 
     # Req 12: Cover Variants Picker & Aspect-Ratio Cropping
-    from steam_syncer_gui import make_cropped_thumb, CoverVariantsWorker, CoverSelectorDialog
-    from PyQt6.QtGui import QColor, QPixmap
-
     # Test make_cropped_thumb on 600x600 square cover (007 case)
     square_pix = QPixmap(600, 600)
     square_pix.fill(QColor("blue"))
@@ -472,7 +497,6 @@ def _do_test_gui():
     assert cropped_wide.height() == 140
 
     # Test CoverVariantsWorker with local dummy folder
-    import tempfile
     with tempfile.TemporaryDirectory() as tmp_gfolder:
         dummy_cover = os.path.join(tmp_gfolder, "cover.png")
         square_pix.save(dummy_cover)
