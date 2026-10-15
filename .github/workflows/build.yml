@@ -1,0 +1,46 @@
+name: CI Test & Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test-and-build:
+    name: Test & Build Windows x64
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Unit & Integration Tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          pytest test_suite.py
+          pytest test_gui.py
+
+      - name: Build Executable with PyInstaller
+        run: |
+          pyinstaller DeckBridge.spec --noconfirm
+
+      - name: Upload DeckBridge Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeckBridge-windows-x64
+          path: dist/DeckBridge/
+          if-no-files-found: error

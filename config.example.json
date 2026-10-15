@@ -1,0 +1,17 @@
+{
+  "game_folders": [
+    "C:\\Games",
+    "D:\\Games"
+  ],
+  "steam_path": "",
+  "user_id": "",
+  "download_artwork": true,
+  "backup_shortcuts": true,
+  "steamgriddb_key": "",
+  "auto_steam_lifecycle": false,
+  "theme": "Auto",
+  "sync_accent_color": true,
+  "language": "auto",
+  "first_run": true,
+  "auto_scan": true
+}
