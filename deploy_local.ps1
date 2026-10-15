@@ -1,8 +1,13 @@
 $target = Join-Path $env:LOCALAPPDATA "Programs\DeckBridge"
+# Stop running instance if any to release file locks
+Get-Process -Name "DeckBridge*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 300
+
 if (Test-Path $target) {
     Remove-Item $target -Recurse -Force
 }
-Copy-Item -Path "dist\DeckBridge" -Destination $target -Recurse -Force
+New-Item -ItemType Directory -Path $target -Force | Out-Null
+Copy-Item -Path "dist\DeckBridge\*" -Destination $target -Recurse -Force
 if (Test-Path "DeckBridge.ico") {
     Copy-Item -Path "DeckBridge.ico" -Destination $target -Force
 }

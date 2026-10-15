@@ -1506,9 +1506,11 @@ class MainWindow(FluentWindow):
         # Compact utility window sizing: 860x620, minimum 760x520
         self.resize(860, 620)
         self.setMinimumSize(760, 520)
-        self.setMicaEffectEnabled(True)
         if sys.platform == 'win32' and hasattr(self, 'windowEffect'):
             self.windowEffect.addShadowEffect = lambda hWnd: None
+            self.windowEffect.setMicaEffect = lambda *args, **kwargs: None
+            self.windowEffect.addWindowAnimation = lambda hWnd: None
+        self.setMicaEffectEnabled(True)
 
         # Center window on primary display
         screen = QApplication.primaryScreen()
@@ -1619,10 +1621,33 @@ class MainWindow(FluentWindow):
         if sys.platform == 'win32':
             try:
                 import ctypes
+                import win32gui
+                import win32con
+                from qframelesswindow.windows.c_structures import MARGINS
                 hWnd = int(self.winId())
-                self.windowEffect.enableBlurBehindWindow(hWnd)
-                self.windowEffect.addWindowAnimation(hWnd)
-                self.windowEffect.setAcrylicEffect(hWnd, gradientColor="161618A0")
+                if hasattr(self, 'windowEffect'):
+                    self.windowEffect.addShadowEffect = lambda h: None
+                    self.windowEffect.setMicaEffect = lambda *args, **kwargs: None
+                    self.windowEffect.addWindowAnimation = lambda h: None
+                    self.windowEffect.enableBlurBehindWindow(hWnd)
+                    self.windowEffect.setAcrylicEffect(hWnd, gradientColor="161618A0")
+
+                # Strip WS_CAPTION so Windows DWM never renders native caption buttons,
+                # while preserving WS_THICKFRAME, WS_MINIMIZEBOX, WS_MAXIMIZEBOX, WS_SYSMENU.
+                style = win32gui.GetWindowLong(hWnd, win32con.GWL_STYLE)
+                if style & win32con.WS_CAPTION:
+                    style &= ~win32con.WS_CAPTION
+                    style |= (win32con.WS_THICKFRAME | win32con.WS_MINIMIZEBOX | win32con.WS_MAXIMIZEBOX | win32con.WS_SYSMENU)
+                    win32gui.SetWindowLong(hWnd, win32con.GWL_STYLE, style)
+                    win32gui.SetWindowPos(
+                        hWnd, None, 0, 0, 0, 0,
+                        win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED
+                    )
+
+                # Reset DWM frame margins to 0 so DWM never renders native caption buttons
+                margins = MARGINS(0, 0, 0, 0)
+                ctypes.windll.dwmapi.DwmExtendFrameIntoClientArea(hWnd, ctypes.byref(margins))
+
                 if sys.getwindowsversion().build >= 22621:
                     dwmapi = ctypes.windll.dwmapi
                     # DWMSBT_TRANSIENTWINDOW = 3 (real-time Gaussian blur of background)
@@ -1644,7 +1669,7 @@ class MainWindow(FluentWindow):
         Overrides FramelessWindow.updateFrameless to prevent duplicate caption buttons.
         On PyQt6 6.11 (QT_VERSION >= 6.10), qframelesswindow removes FramelessWindowHint,
         causing Windows 11 DWM to render native caption buttons over FluentTitleBar.
-        Enforces FramelessWindowHint and retains authentic window effects without DWM frame extension.
+        Enforces FramelessWindowHint and strips WS_CAPTION to suppress native DWM buttons.
         """
         was_visible = self.isVisible()
         stayOnTop = Qt.WindowType.WindowStaysOnTopHint if self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint else 0
@@ -1654,10 +1679,31 @@ class MainWindow(FluentWindow):
 
         if sys.platform == 'win32':
             try:
+                import ctypes
+                import win32gui
+                import win32con
+                from qframelesswindow.windows.c_structures import MARGINS
                 hWnd = int(self.winId())
-                self.windowEffect.enableBlurBehindWindow(hWnd)
-                self.windowEffect.addWindowAnimation(hWnd)
-                self.windowEffect.setAcrylicEffect(hWnd, gradientColor="161618A0")
+                if hasattr(self, 'windowEffect'):
+                    self.windowEffect.addShadowEffect = lambda h: None
+                    self.windowEffect.setMicaEffect = lambda *args, **kwargs: None
+                    self.windowEffect.addWindowAnimation = lambda h: None
+                    self.windowEffect.enableBlurBehindWindow(hWnd)
+                    self.windowEffect.setAcrylicEffect(hWnd, gradientColor="161618A0")
+
+                # Strip WS_CAPTION to suppress Windows DWM native caption buttons
+                style = win32gui.GetWindowLong(hWnd, win32con.GWL_STYLE)
+                style &= ~win32con.WS_CAPTION
+                style |= (win32con.WS_THICKFRAME | win32con.WS_MINIMIZEBOX | win32con.WS_MAXIMIZEBOX | win32con.WS_SYSMENU)
+                win32gui.SetWindowLong(hWnd, win32con.GWL_STYLE, style)
+                win32gui.SetWindowPos(
+                    hWnd, None, 0, 0, 0, 0,
+                    win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED
+                )
+
+                # Reset DWM frame margins to 0
+                margins = MARGINS(0, 0, 0, 0)
+                ctypes.windll.dwmapi.DwmExtendFrameIntoClientArea(hWnd, ctypes.byref(margins))
             except Exception as e:
                 logger.debug(f"updateFrameless window effects notice: {e}")
 
@@ -1724,7 +1770,7 @@ class MainWindow(FluentWindow):
             pass
 
     def nativeEvent(self, eventType, message):
-        """Listens for Windows 11 live personalization, accent color changes, and handles WM_NCCALCSIZE."""
+        """Listens for Windows 11 live personalization, accent color changes, and handles non-client messages."""
         try:
             from ctypes.wintypes import MSG
             msg = MSG.from_address(message.__int__())
@@ -1737,6 +1783,12 @@ class MainWindow(FluentWindow):
                 # completely preventing Windows DWM from rendering native caption buttons).
                 super().nativeEvent(eventType, message)
                 return True, 0
+            elif msg.message == 0x0085:  # WM_NCPAINT
+                # Suppress DWM / DefWindowProc non-client painting of caption buttons
+                return True, 0
+            elif msg.message == 0x0086:  # WM_NCACTIVATE
+                # Return True, 1 so the window activates cleanly without DWM drawing caption buttons
+                return True, 1
         except Exception:
             pass
 

@@ -69,6 +69,12 @@ def _do_test_gui():
     window.updateFrameless()
     assert bool(window.windowFlags() & Qt.WindowType.FramelessWindowHint) is True
 
+    # Verify windowEffect is neutered to prevent DWM frame extension
+    if sys.platform == 'win32' and hasattr(window, 'windowEffect'):
+        assert window.windowEffect.addShadowEffect(0) is None
+        assert window.windowEffect.setMicaEffect(0) is None
+        assert window.windowEffect.addWindowAnimation(0) is None
+
     # 1. Test Window Sizing enforcement (860x620 default, 760x520 minimum)
     assert window.minimumSize().width() >= 760
     assert window.minimumSize().height() >= 520
