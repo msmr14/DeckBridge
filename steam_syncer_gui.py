@@ -1549,6 +1549,11 @@ class MainWindow(FluentWindow):
         # Enable authentic Windows 11 Acrylic blur-behind backdrop
         self.setup_system_blur_backdrop()
 
+        # Align window icon and title with 20px padding (matching cards below)
+        if hasattr(self.titleBar, 'hBoxLayout'):
+            self.titleBar.hBoxLayout.insertSpacing(0, 20)
+            self.titleBar.hBoxLayout.insertSpacing(2, 6)
+
         # TitleBar controls (Steam status dot, settings button)
         btn_h = self.titleBar.minBtn.height() if hasattr(self.titleBar, 'minBtn') else 32
         self.steam_dot = SteamStatusDot(self.titleBar)
@@ -1611,9 +1616,30 @@ class MainWindow(FluentWindow):
 
     def setup_system_blur_backdrop(self):
         """
-        Enables authentic Windows 11 Mica blur-behind material natively via QFluentWidgets.
+        Enables authentic Windows 11 Acrylic blur-behind material.
+        Blurs open windows and desktop wallpaper behind DeckBridge in real-time.
         """
-        self.setMicaEffectEnabled(True)
+        if sys.platform == 'win32':
+            try:
+                import ctypes
+                hWnd = int(self.winId())
+                if hasattr(self, 'windowEffect'):
+                    self.windowEffect.enableBlurBehindWindow(hWnd)
+                    self.windowEffect.addWindowAnimation(hWnd)
+                    self.windowEffect.setAcrylicEffect(hWnd, gradientColor="161618A0")
+                if sys.getwindowsversion().build >= 22621:
+                    dwmapi = ctypes.windll.dwmapi
+                    # DWMSBT_TRANSIENTWINDOW = 3 (Desktop Acrylic real-time Gaussian blur)
+                    dwmapi.DwmSetWindowAttribute(hWnd, 38, ctypes.byref(ctypes.c_int(3)), 4)
+                    # DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+                    dwmapi.DwmSetWindowAttribute(hWnd, 20, ctypes.byref(ctypes.c_int(1)), 4)
+                if sys.getwindowsversion().build >= 22000:
+                    # Enforce Windows 11 rounded corners (DWMWCP_ROUND = 2)
+                    dwmapi = ctypes.windll.dwmapi
+                    dwmapi.DwmSetWindowAttribute(hWnd, 33, ctypes.byref(ctypes.c_int(2)), 4)
+            except Exception as e:
+                logger.debug(f"Could not apply DWM system blur: {e}")
+
         if hasattr(self, 'stackedWidget') and self.stackedWidget:
             self.stackedWidget.setStyleSheet("StackedWidget, QStackedWidget { background-color: transparent; border: none; }")
             self.stackedWidget.setProperty("isTransparent", True)
@@ -1624,12 +1650,6 @@ class MainWindow(FluentWindow):
 
     def showEvent(self, e):
         super().showEvent(e)
-        if sys.platform == 'win32' and sys.getwindowsversion().build >= 22000:
-            try:
-                import ctypes
-                ctypes.windll.dwmapi.DwmSetWindowAttribute(int(self.winId()), 33, ctypes.byref(ctypes.c_int(2)), 4)
-            except Exception:
-                pass
         self.setup_system_blur_backdrop()
 
     def updateFrameless(self):
@@ -1650,15 +1670,13 @@ class MainWindow(FluentWindow):
 
     def paintEvent(self, e):
         """
-        Clears the backing store cleanly with CompositionMode_Clear when Mica is active.
-        Completely eliminates resize trails, smearing, and duplicate widget ghosting.
+        Clears the backing store cleanly with CompositionMode_Clear when Acrylic blur is active.
+        Completely eliminates resize trails, smearing, and duplicate widget ghosting,
+        allowing the Windows 11 Acrylic frosted-glass blur to shine through.
         """
-        if self.isMicaEffectEnabled():
-            painter = QPainter(self)
-            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
-            painter.fillRect(self.rect(), Qt.GlobalColor.transparent)
-        else:
-            super().paintEvent(e)
+        painter = QPainter(self)
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
+        painter.fillRect(self.rect(), Qt.GlobalColor.transparent)
 
     def resizeEvent(self, e):
         """Reposition titleBar to full window width and repaint smoothly."""
