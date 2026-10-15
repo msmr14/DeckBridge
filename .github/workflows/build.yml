@@ -33,6 +33,8 @@ jobs:
         run: |
           pytest test_suite.py
           pytest test_gui.py
+          pytest test_lifecycle_mock.py
+          pytest test_harness.py
 
       - name: Build Executable with PyInstaller
         run: |

@@ -191,9 +191,18 @@ except Exception as e:
     logger.debug(f"Could not create covers_cache directory: {e}")
 
 def get_default_config_path() -> str:
-    portable_cfg = os.path.join(BASE_DIR, "config.json")
-    if os.path.isfile(portable_cfg):
-        return portable_cfg
+    for candidate_dir in (
+        os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else None,
+        BASE_DIR
+    ):
+        if candidate_dir:
+            portable_cfg = os.path.join(candidate_dir, "config.json")
+            if os.path.isfile(portable_cfg):
+                try:
+                    if os.access(candidate_dir, os.W_OK):
+                        return portable_cfg
+                except Exception:
+                    pass
     return os.path.join(DECKBRIDGE_DATA_DIR, "config.json")
 
 CONFIG_PATH = get_default_config_path()
@@ -1641,15 +1650,18 @@ class MainWindow(FluentWindow):
         causing Windows 11 DWM to render native caption buttons over FluentTitleBar.
         Enforces FramelessWindowHint and retains authentic window effects.
         """
+        was_visible = self.isVisible()
         stayOnTop = Qt.WindowType.WindowStaysOnTopHint if self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint else 0
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint | stayOnTop)
+        if was_visible and not self.isVisible():
+            self.show()
 
         if sys.platform == 'win32':
             try:
                 hWnd = int(self.winId())
                 self.windowEffect.enableBlurBehindWindow(hWnd)
                 self.windowEffect.addWindowAnimation(hWnd)
-                self.windowEffect.setAcrylicEffect(hWnd)
+                self.windowEffect.setAcrylicEffect(hWnd, gradientColor="161618A0")
                 self.windowEffect.addShadowEffect(hWnd)
             except Exception as e:
                 logger.debug(f"updateFrameless window effects notice: {e}")
@@ -3465,7 +3477,7 @@ def main():
 
     configure_high_dpi()
     app = get_or_create_qapp()
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = BASE_DIR
     for ic in ("DeckBridge.ico", "app_icon.ico", "DeckBridge_logo.png"):
         ip = os.path.join(base_dir, ic)
         if os.path.isfile(ip):

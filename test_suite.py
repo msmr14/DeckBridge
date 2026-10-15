@@ -825,6 +825,21 @@ class ArchitectureStagesTests(unittest.TestCase):
                 self.assertIn('DeckBridge', clean_cfg)
                 self.assertTrue(clean_cfg.endswith('config.json'))
 
+            # Portable writable config detected
+            portable_cfg_file = os.path.join(empty_base, "config.json")
+            with open(portable_cfg_file, 'w') as f:
+                f.write('{"portable": true}')
+            with patch('steam_syncer_gui.BASE_DIR', empty_base):
+                cfg_found = steam_syncer_gui.get_default_config_path()
+                self.assertEqual(cfg_found, portable_cfg_file)
+
+            # Read-only container (MSIX WindowsApps simulation) falls back to LocalAppData
+            with patch('steam_syncer_gui.BASE_DIR', empty_base), \
+                 patch('os.access', return_value=False):
+                fallback_cfg = steam_syncer_gui.get_default_config_path()
+                self.assertIn('DeckBridge', fallback_cfg)
+                self.assertNotIn(empty_base, fallback_cfg)
+
 
 if __name__ == '__main__':
     unittest.main()
