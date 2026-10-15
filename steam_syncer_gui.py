@@ -1507,6 +1507,7 @@ class MainWindow(FluentWindow):
         self.resize(860, 620)
         self.setMinimumSize(760, 520)
         self.setMicaEffectEnabled(True)
+        self.updateFrameless()
 
         # Center window on primary display
         screen = QApplication.primaryScreen()
@@ -1610,48 +1611,9 @@ class MainWindow(FluentWindow):
 
     def setup_system_blur_backdrop(self):
         """
-        Enables authentic Windows 11 Acrylic blur-behind material.
-        Blurs open windows and desktop wallpaper behind DeckBridge in real-time.
+        Enables authentic Windows 11 Mica blur-behind material natively via QFluentWidgets.
         """
         self.setMicaEffectEnabled(True)
-        if sys.platform == 'win32':
-            try:
-                import ctypes
-                import win32gui
-                import win32con
-                from qframelesswindow.windows.c_structures import MARGINS
-                hWnd = int(self.winId())
-                if hasattr(self, 'windowEffect'):
-                    self.windowEffect.enableBlurBehindWindow(hWnd)
-                    self.windowEffect.setAcrylicEffect(hWnd, gradientColor="161618A0")
-
-                # Strip WS_CAPTION so Windows DWM never renders native caption buttons,
-                # while preserving WS_THICKFRAME, WS_MINIMIZEBOX, WS_MAXIMIZEBOX, WS_SYSMENU.
-                style = win32gui.GetWindowLong(hWnd, win32con.GWL_STYLE)
-                if style & win32con.WS_CAPTION:
-                    style &= ~win32con.WS_CAPTION
-                    style |= (win32con.WS_THICKFRAME | win32con.WS_MINIMIZEBOX | win32con.WS_MAXIMIZEBOX | win32con.WS_SYSMENU)
-                    win32gui.SetWindowLong(hWnd, win32con.GWL_STYLE, style)
-                    win32gui.SetWindowPos(
-                        hWnd, None, 0, 0, 0, 0,
-                        win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED
-                    )
-
-                # DWM Frame extension: enables soft drop shadow and DWM rounded corners
-                margins = MARGINS(-1, -1, -1, -1)
-                ctypes.windll.dwmapi.DwmExtendFrameIntoClientArea(hWnd, ctypes.byref(margins))
-
-                # Enforce Windows 11 Rounded Corners (DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2)
-                dwmapi = ctypes.windll.dwmapi
-                dwmapi.DwmSetWindowAttribute(hWnd, 33, ctypes.byref(ctypes.c_int(2)), 4)
-                dwmapi.DwmSetWindowAttribute(hWnd, 20, ctypes.byref(ctypes.c_int(1)), 4)
-
-                if sys.getwindowsversion().build >= 22621:
-                    # DWMSBT_TRANSIENTWINDOW = 3 (real-time Gaussian blur of background)
-                    dwmapi.DwmSetWindowAttribute(hWnd, 38, ctypes.byref(ctypes.c_int(3)), 4)
-            except Exception as e:
-                logger.debug(f"Could not apply DWM system blur: {e}")
-
         if hasattr(self, 'stackedWidget') and self.stackedWidget:
             self.stackedWidget.setStyleSheet("StackedWidget, QStackedWidget { background-color: transparent; border: none; }")
             self.stackedWidget.setProperty("isTransparent", True)
@@ -1660,54 +1622,31 @@ class MainWindow(FluentWindow):
         if hasattr(self, 'settings_interface') and self.settings_interface:
             self.settings_interface.setProperty("isStackedTransparent", True)
 
-    def updateFrameless(self):
-        """
-        Overrides FramelessWindow.updateFrameless to prevent duplicate caption buttons.
-        On PyQt6 6.11 (QT_VERSION >= 6.10), qframelesswindow removes FramelessWindowHint,
-        causing Windows 11 DWM to render native caption buttons over FluentTitleBar.
-        Enforces FramelessWindowHint, strips WS_CAPTION, and ensures DWM rounded corners.
-        """
-        was_visible = self.isVisible()
-        stayOnTop = Qt.WindowType.WindowStaysOnTopHint if self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint else 0
-        self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint | stayOnTop)
-        if was_visible and not self.isVisible():
-            self.show()
-
-        if sys.platform == 'win32':
-            try:
-                import ctypes
-                import win32gui
-                import win32con
-                from qframelesswindow.windows.c_structures import MARGINS
-                hWnd = int(self.winId())
-                if hasattr(self, 'windowEffect'):
-                    self.windowEffect.enableBlurBehindWindow(hWnd)
-                    self.windowEffect.setAcrylicEffect(hWnd, gradientColor="161618A0")
-
-                # Strip WS_CAPTION to suppress Windows DWM native caption buttons
-                style = win32gui.GetWindowLong(hWnd, win32con.GWL_STYLE)
-                style &= ~win32con.WS_CAPTION
-                style |= (win32con.WS_THICKFRAME | win32con.WS_MINIMIZEBOX | win32con.WS_MAXIMIZEBOX | win32con.WS_SYSMENU)
-                win32gui.SetWindowLong(hWnd, win32con.GWL_STYLE, style)
-                win32gui.SetWindowPos(
-                    hWnd, None, 0, 0, 0, 0,
-                    win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED
-                )
-
-                # DWM Frame extension: enables soft drop shadow and DWM rounded corners
-                margins = MARGINS(-1, -1, -1, -1)
-                ctypes.windll.dwmapi.DwmExtendFrameIntoClientArea(hWnd, ctypes.byref(margins))
-
-                # Enforce Windows 11 Rounded Corners (DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2)
-                dwmapi = ctypes.windll.dwmapi
-                dwmapi.DwmSetWindowAttribute(hWnd, 33, ctypes.byref(ctypes.c_int(2)), 4)
-                dwmapi.DwmSetWindowAttribute(hWnd, 20, ctypes.byref(ctypes.c_int(1)), 4)
-            except Exception as e:
-                logger.debug(f"updateFrameless window effects notice: {e}")
-
     def showEvent(self, e):
         super().showEvent(e)
+        if sys.platform == 'win32' and sys.getwindowsversion().build >= 22000:
+            try:
+                import ctypes
+                ctypes.windll.dwmapi.DwmSetWindowAttribute(int(self.winId()), 33, ctypes.byref(ctypes.c_int(2)), 4)
+            except Exception:
+                pass
         self.setup_system_blur_backdrop()
+
+    def updateFrameless(self):
+        """
+        Enforces FramelessWindowHint on PyQt6 6.11+ to prevent duplicate native caption buttons,
+        while maintaining Windows 11 DWM rounded corners and window animation.
+        """
+        stayOnTop = Qt.WindowType.WindowStaysOnTopHint if self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint else 0
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint | stayOnTop)
+        if hasattr(self, 'windowEffect'):
+            self.windowEffect.addWindowAnimation(self.winId())
+        if sys.platform == 'win32' and sys.getwindowsversion().build >= 22000:
+            try:
+                import ctypes
+                ctypes.windll.dwmapi.DwmSetWindowAttribute(int(self.winId()), 33, ctypes.byref(ctypes.c_int(2)), 4)
+            except Exception:
+                pass
 
     def paintEvent(self, e):
         """
@@ -1722,8 +1661,10 @@ class MainWindow(FluentWindow):
             super().paintEvent(e)
 
     def resizeEvent(self, e):
-        """Ensures immediate synchronized repaint across window boundaries during live resizing."""
+        """Reposition titleBar to full window width and repaint smoothly."""
         super().resizeEvent(e)
+        self.titleBar.move(0, 0)
+        self.titleBar.resize(self.width(), self.titleBar.height())
         self.update()
 
     def cleanup(self):
@@ -1768,17 +1709,13 @@ class MainWindow(FluentWindow):
             pass
 
     def nativeEvent(self, eventType, message):
-        """Listens for Windows 11 live personalization, accent color changes, and handles non-client messages."""
+        """Listens for Windows 11 live personalization and accent color changes."""
         try:
             from ctypes.wintypes import MSG
             msg = MSG.from_address(message.__int__())
             if msg.message in (0x001A, 0x0320):
                 if self.config.get('sync_accent_color', True):
                     self.sync_windows_accent_color()
-            elif msg.message == 0x0083:  # WM_NCCALCSIZE
-                # Enforce return value of 0 so client area occupies the whole window
-                super().nativeEvent(eventType, message)
-                return True, 0
         except Exception:
             pass
 
