@@ -1507,6 +1507,8 @@ class MainWindow(FluentWindow):
         self.resize(860, 620)
         self.setMinimumSize(760, 520)
         self.setMicaEffectEnabled(True)
+        if sys.platform == 'win32' and hasattr(self, 'windowEffect'):
+            self.windowEffect.addShadowEffect = lambda hWnd: None
 
         # Center window on primary display
         screen = QApplication.primaryScreen()
@@ -1620,12 +1622,6 @@ class MainWindow(FluentWindow):
                 hWnd = int(self.winId())
                 self.windowEffect.enableBlurBehindWindow(hWnd)
                 self.windowEffect.addWindowAnimation(hWnd)
-                try:
-                    from qframelesswindow.windows import win_utils
-                    if win_utils.isGreaterEqualWin11():
-                        self.windowEffect.addShadowEffect(hWnd)
-                except Exception:
-                    pass
                 self.windowEffect.setAcrylicEffect(hWnd, gradientColor="161618A0")
                 if sys.getwindowsversion().build >= 22621:
                     dwmapi = ctypes.windll.dwmapi
@@ -1648,7 +1644,7 @@ class MainWindow(FluentWindow):
         Overrides FramelessWindow.updateFrameless to prevent duplicate caption buttons.
         On PyQt6 6.11 (QT_VERSION >= 6.10), qframelesswindow removes FramelessWindowHint,
         causing Windows 11 DWM to render native caption buttons over FluentTitleBar.
-        Enforces FramelessWindowHint and retains authentic window effects.
+        Enforces FramelessWindowHint and retains authentic window effects without DWM frame extension.
         """
         was_visible = self.isVisible()
         stayOnTop = Qt.WindowType.WindowStaysOnTopHint if self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint else 0
@@ -1662,7 +1658,6 @@ class MainWindow(FluentWindow):
                 self.windowEffect.enableBlurBehindWindow(hWnd)
                 self.windowEffect.addWindowAnimation(hWnd)
                 self.windowEffect.setAcrylicEffect(hWnd, gradientColor="161618A0")
-                self.windowEffect.addShadowEffect(hWnd)
             except Exception as e:
                 logger.debug(f"updateFrameless window effects notice: {e}")
 
@@ -1729,13 +1724,19 @@ class MainWindow(FluentWindow):
             pass
 
     def nativeEvent(self, eventType, message):
-        """Listens for Windows 11 live personalization and accent color change broadcasts."""
+        """Listens for Windows 11 live personalization, accent color changes, and handles WM_NCCALCSIZE."""
         try:
             from ctypes.wintypes import MSG
             msg = MSG.from_address(message.__int__())
             if msg.message in (0x001A, 0x0320):
                 if self.config.get('sync_accent_color', True):
                     self.sync_windows_accent_color()
+            elif msg.message == 0x0083:  # WM_NCCALCSIZE
+                # Let qframelesswindow adjust rect for maximize/fullscreen borders,
+                # but enforce return value of 0 (client area occupies entire window,
+                # completely preventing Windows DWM from rendering native caption buttons).
+                super().nativeEvent(eventType, message)
+                return True, 0
         except Exception:
             pass
 
