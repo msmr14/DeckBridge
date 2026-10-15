@@ -1506,10 +1506,6 @@ class MainWindow(FluentWindow):
         # Compact utility window sizing: 860x620, minimum 760x520
         self.resize(860, 620)
         self.setMinimumSize(760, 520)
-        if sys.platform == 'win32' and hasattr(self, 'windowEffect'):
-            self.windowEffect.addShadowEffect = lambda hWnd: None
-            self.windowEffect.setMicaEffect = lambda *args, **kwargs: None
-            self.windowEffect.addWindowAnimation = lambda hWnd: None
         self.setMicaEffectEnabled(True)
 
         # Center window on primary display
@@ -1626,9 +1622,6 @@ class MainWindow(FluentWindow):
                 from qframelesswindow.windows.c_structures import MARGINS
                 hWnd = int(self.winId())
                 if hasattr(self, 'windowEffect'):
-                    self.windowEffect.addShadowEffect = lambda h: None
-                    self.windowEffect.setMicaEffect = lambda *args, **kwargs: None
-                    self.windowEffect.addWindowAnimation = lambda h: None
                     self.windowEffect.enableBlurBehindWindow(hWnd)
                     self.windowEffect.setAcrylicEffect(hWnd, gradientColor="161618A0")
 
@@ -1644,15 +1637,18 @@ class MainWindow(FluentWindow):
                         win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED
                     )
 
-                # Reset DWM frame margins to 0 so DWM never renders native caption buttons
-                margins = MARGINS(0, 0, 0, 0)
+                # DWM Frame extension: enables soft drop shadow and DWM rounded corners
+                margins = MARGINS(-1, -1, -1, -1)
                 ctypes.windll.dwmapi.DwmExtendFrameIntoClientArea(hWnd, ctypes.byref(margins))
 
+                # Enforce Windows 11 Rounded Corners (DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2)
+                dwmapi = ctypes.windll.dwmapi
+                dwmapi.DwmSetWindowAttribute(hWnd, 33, ctypes.byref(ctypes.c_int(2)), 4)
+                dwmapi.DwmSetWindowAttribute(hWnd, 20, ctypes.byref(ctypes.c_int(1)), 4)
+
                 if sys.getwindowsversion().build >= 22621:
-                    dwmapi = ctypes.windll.dwmapi
                     # DWMSBT_TRANSIENTWINDOW = 3 (real-time Gaussian blur of background)
                     dwmapi.DwmSetWindowAttribute(hWnd, 38, ctypes.byref(ctypes.c_int(3)), 4)
-                    dwmapi.DwmSetWindowAttribute(hWnd, 20, ctypes.byref(ctypes.c_int(1)), 4)
             except Exception as e:
                 logger.debug(f"Could not apply DWM system blur: {e}")
 
@@ -1669,7 +1665,7 @@ class MainWindow(FluentWindow):
         Overrides FramelessWindow.updateFrameless to prevent duplicate caption buttons.
         On PyQt6 6.11 (QT_VERSION >= 6.10), qframelesswindow removes FramelessWindowHint,
         causing Windows 11 DWM to render native caption buttons over FluentTitleBar.
-        Enforces FramelessWindowHint and strips WS_CAPTION to suppress native DWM buttons.
+        Enforces FramelessWindowHint, strips WS_CAPTION, and ensures DWM rounded corners.
         """
         was_visible = self.isVisible()
         stayOnTop = Qt.WindowType.WindowStaysOnTopHint if self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint else 0
@@ -1685,9 +1681,6 @@ class MainWindow(FluentWindow):
                 from qframelesswindow.windows.c_structures import MARGINS
                 hWnd = int(self.winId())
                 if hasattr(self, 'windowEffect'):
-                    self.windowEffect.addShadowEffect = lambda h: None
-                    self.windowEffect.setMicaEffect = lambda *args, **kwargs: None
-                    self.windowEffect.addWindowAnimation = lambda h: None
                     self.windowEffect.enableBlurBehindWindow(hWnd)
                     self.windowEffect.setAcrylicEffect(hWnd, gradientColor="161618A0")
 
@@ -1701,9 +1694,14 @@ class MainWindow(FluentWindow):
                     win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED
                 )
 
-                # Reset DWM frame margins to 0
-                margins = MARGINS(0, 0, 0, 0)
+                # DWM Frame extension: enables soft drop shadow and DWM rounded corners
+                margins = MARGINS(-1, -1, -1, -1)
                 ctypes.windll.dwmapi.DwmExtendFrameIntoClientArea(hWnd, ctypes.byref(margins))
+
+                # Enforce Windows 11 Rounded Corners (DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2)
+                dwmapi = ctypes.windll.dwmapi
+                dwmapi.DwmSetWindowAttribute(hWnd, 33, ctypes.byref(ctypes.c_int(2)), 4)
+                dwmapi.DwmSetWindowAttribute(hWnd, 20, ctypes.byref(ctypes.c_int(1)), 4)
             except Exception as e:
                 logger.debug(f"updateFrameless window effects notice: {e}")
 
@@ -1778,17 +1776,9 @@ class MainWindow(FluentWindow):
                 if self.config.get('sync_accent_color', True):
                     self.sync_windows_accent_color()
             elif msg.message == 0x0083:  # WM_NCCALCSIZE
-                # Let qframelesswindow adjust rect for maximize/fullscreen borders,
-                # but enforce return value of 0 (client area occupies entire window,
-                # completely preventing Windows DWM from rendering native caption buttons).
+                # Enforce return value of 0 so client area occupies the whole window
                 super().nativeEvent(eventType, message)
                 return True, 0
-            elif msg.message == 0x0085:  # WM_NCPAINT
-                # Suppress DWM / DefWindowProc non-client painting of caption buttons
-                return True, 0
-            elif msg.message == 0x0086:  # WM_NCACTIVATE
-                # Return True, 1 so the window activates cleanly without DWM drawing caption buttons
-                return True, 1
         except Exception:
             pass
 
