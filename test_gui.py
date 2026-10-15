@@ -255,9 +255,15 @@ def _do_test_gui():
         assert window._current_button_mode == "sync"
         assert window.action_stack.currentIndex() == 0
 
+    # Pause background timer and wait for initial scan to avoid race conditions during animation testing
+    if hasattr(window, 'scan_worker') and window.scan_worker and window.scan_worker.isRunning():
+        window.scan_worker.wait(3000)
+    if hasattr(window, 'poll_timer') and window.poll_timer.isActive():
+        window.poll_timer.stop()
+
     # Test dynamic smooth transition between modes
     window.animate_set_button_mode("close")
-    for _ in range(25):
+    for _ in range(30):
         app.processEvents()
         time.sleep(0.015)
     assert window._current_button_mode == "close"
