@@ -193,7 +193,14 @@ DeckBridge уважает конфиденциальность пользова�
 
 Если DeckBridge помогает вам легко и красиво организовывать библиотеку игр на ПК и Steam Deck, вы можете поддержать автора донатом на развитие проекта:
 
-### 💳 Tribute (Банковские карты / Telegram)
+### 🧡 Boosty (Карты / СБП / Рубли)
+* **Прямая ссылка:** [boosty.to/n300l/donate](https://boosty.to/n300l/donate)
+
+[![Поддержать на Boosty](https://img.shields.io/badge/Донат-Boosty%20(Карты%20%2F%20СБП)-f15f2c?style=for-the-badge&logo=boosty&logoColor=white)](https://boosty.to/n300l/donate)
+
+---
+
+### 💳 Tribute (Банковские карты / Telegram / Stars)
 Быстрый и удобный способ поддержать автора любой банковской картой, через Telegram Stars или криптовалютой:
 * **Веб-версия (карты любых банков):** [web.tribute.tg/d/SsO](https://web.tribute.tg/d/SsO)
 * **Telegram Mini App:** [t.me/tribute/app?startapp=dSsO](https://t.me/tribute/app?startapp=dSsO)
@@ -202,20 +209,27 @@ DeckBridge уважает конфиденциальность пользова�
 
 ---
 
-### 🪙 Криптовалюта / USDT (BEP20)
-Прямой перевод Tether USD в сети BNB Smart Chain (BSC):
+### 🪙 Криптовалюта (USDT, USDC, Litecoin)
 
-| Параметр | Значение |
-| :--- | :--- |
-| **Монета** | **Tether USD (USDT)** |
-| **Сеть** | **BNB Smart Chain (BSC / BEP20)** |
-| **Адрес депозита** | `0xb9e67030ab0f38d1d88e4eaa605fb2acf0aa0ba3` |
+| Монета / Токен | Сеть (Network) | Адрес кошелька для депозита |
+| :--- | :--- | :--- |
+| **USDT** | **BNB Smart Chain (BSC / BEP20)** | `0xb9e67030ab0f38d1d88e4eaa605fb2acf0aa0ba3` |
+| **USDT** | **TRON (TRC20)** | `TQ4RwzWxs4kD6WXFgJkejRMSeAPsGUTv44` |
+| **USDC** | **Solana (SOL)** | `7SjWhmXyAQ2xVxB3BNuxHk1mQW8P5dg3aXVtr1eyT6qF` |
+| **Litecoin (LTC)** | **Litecoin Network** | `LRBmSE6GuURdMJzTB971BAz4Z8Z9UXnPbF` |
+
+<br />
 
 <div align="center">
-  <br />
-  <img src="Assets/donate_usdt_bep20.png" width="180" alt="USDT BEP20 QR Code" style="border-radius: 12px; background: #ffffff; padding: 6px;" />
-  <br />
-  <sub><i>Сканируйте через Bybit, Binance, Trust Wallet, MetaMask, OKX или любой Web3 кошелек (сеть BSC BEP20)</i></sub>
+  <table>
+    <tr>
+      <td align="center"><b>USDT (BEP20)</b><br/><img src="Assets/donate_usdt_bep20.png" width="150" style="background:#ffffff;border-radius:8px;padding:4px;"/></td>
+      <td align="center"><b>USDT (TRC20)</b><br/><img src="Assets/donate_usdt_trc20.png" width="150" style="background:#ffffff;border-radius:8px;padding:4px;"/></td>
+      <td align="center"><b>USDC (SOL)</b><br/><img src="Assets/donate_usdc_sol.png" width="150" style="background:#ffffff;border-radius:8px;padding:4px;"/></td>
+      <td align="center"><b>Litecoin (LTC)</b><br/><img src="Assets/donate_ltc.png" width="150" style="background:#ffffff;border-radius:8px;padding:4px;"/></td>
+    </tr>
+  </table>
+  <sub><i>Сканируйте через Bybit, Binance, Trust Wallet, MetaMask, Phantom, OKX или любой Web3 кошелек</i></sub>
 </div>
 
 ---

@@ -200,7 +200,14 @@ DeckBridge values your privacy:
 
 If DeckBridge makes managing your PC and Steam Deck game library effortless, you can support ongoing development and maintenance:
 
-### 💳 Tribute (Bank Cards / Telegram)
+### 🧡 Boosty (Bank Cards / Global / RUB)
+* **Direct Link:** [boosty.to/n300l/donate](https://boosty.to/n300l/donate)
+
+[![Donate with Boosty](https://img.shields.io/badge/Donate-Boosty%20(Cards%20%2F%20RUB)-f15f2c?style=for-the-badge&logo=boosty&logoColor=white)](https://boosty.to/n300l/donate)
+
+---
+
+### 💳 Tribute (Bank Cards / Telegram / Stars)
 A fast and flexible way to donate via any bank card, Telegram Stars, or cryptocurrency:
 * **Web (All bank cards / global):** [web.tribute.tg/d/SsO](https://web.tribute.tg/d/SsO)
 * **Telegram Mini App:** [t.me/tribute/app?startapp=dSsO](https://t.me/tribute/app?startapp=dSsO)
@@ -209,20 +216,27 @@ A fast and flexible way to donate via any bank card, Telegram Stars, or cryptocu
 
 ---
 
-### 🪙 Cryptocurrency / USDT (BEP20)
-Direct transfer via BNB Smart Chain (BSC):
+### 🪙 Cryptocurrency (USDT, USDC, Litecoin)
 
-| Parameter | Value |
-| :--- | :--- |
-| **Coin** | **Tether USD (USDT)** |
-| **Network** | **BNB Smart Chain (BSC / BEP20)** |
-| **Deposit Address** | `0xb9e67030ab0f38d1d88e4eaa605fb2acf0aa0ba3` |
+| Coin / Token | Network | Deposit Address |
+| :--- | :--- | :--- |
+| **USDT** | **BNB Smart Chain (BSC / BEP20)** | `0xb9e67030ab0f38d1d88e4eaa605fb2acf0aa0ba3` |
+| **USDT** | **TRON (TRC20)** | `TQ4RwzWxs4kD6WXFgJkejRMSeAPsGUTv44` |
+| **USDC** | **Solana (SOL)** | `7SjWhmXyAQ2xVxB3BNuxHk1mQW8P5dg3aXVtr1eyT6qF` |
+| **Litecoin (LTC)** | **Litecoin Network** | `LRBmSE6GuURdMJzTB971BAz4Z8Z9UXnPbF` |
+
+<br />
 
 <div align="center">
-  <br />
-  <img src="Assets/donate_usdt_bep20.png" width="180" alt="USDT BEP20 QR Code" style="border-radius: 12px; background: #ffffff; padding: 6px;" />
-  <br />
-  <sub><i>Scan with Bybit, Binance, Trust Wallet, MetaMask, OKX, or any Web3 wallet (BSC BEP20 network)</i></sub>
+  <table>
+    <tr>
+      <td align="center"><b>USDT (BEP20)</b><br/><img src="Assets/donate_usdt_bep20.png" width="150" style="background:#ffffff;border-radius:8px;padding:4px;"/></td>
+      <td align="center"><b>USDT (TRC20)</b><br/><img src="Assets/donate_usdt_trc20.png" width="150" style="background:#ffffff;border-radius:8px;padding:4px;"/></td>
+      <td align="center"><b>USDC (SOL)</b><br/><img src="Assets/donate_usdc_sol.png" width="150" style="background:#ffffff;border-radius:8px;padding:4px;"/></td>
+      <td align="center"><b>Litecoin (LTC)</b><br/><img src="Assets/donate_ltc.png" width="150" style="background:#ffffff;border-radius:8px;padding:4px;"/></td>
+    </tr>
+  </table>
+  <sub><i>Scan with Bybit, Binance, Trust Wallet, MetaMask, Phantom, OKX, or any Web3 wallet</i></sub>
 </div>
 
 ---

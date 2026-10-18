@@ -24,12 +24,17 @@ LANGUAGES = {
 TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "ru": {
         "sec_donate": "Поддержать проект ❤️",
-        "sec_donate_desc": "Если вам нравится DeckBridge, вы можете поддержать автора донатом через Tribute или криптовалюту.",
+        "sec_donate_desc": "Если вам нравится DeckBridge, вы можете поддержать автора донатом через Boosty, Tribute или криптовалюту.",
         "btn_donate_tribute": "Tribute (Карты / TG)",
+        "btn_donate_boosty": "Boosty (Карты / Рубли)",
+        "btn_show_crypto_qr": "Криптокошельки (QR)",
+        "btn_copy_address": "Скопировать адрес",
         "btn_copy_usdt": "Скопировать USDT (BEP20)",
         "btn_show_qr": "QR-код",
         "toast_usdt_copied": "Адрес USDT (BEP20) скопирован в буфер обмена!",
+        "toast_address_copied": "Адрес {coin} скопирован в буфер обмена!",
         "dialog_qr_title": "Пополнение / Донат USDT (BEP20)",
+        "dialog_crypto_title": "Пожертвование криптовалютой",
         "dialog_qr_network_notice": "Сеть: BNB Smart Chain (BEP20). Отправляйте только USDT в сети BSC.",
         "badge_copied": "Скопировано!",
 
@@ -157,12 +162,17 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
 
     "en": {
         "sec_donate": "Support DeckBridge ❤️",
-        "sec_donate_desc": "If you enjoy DeckBridge, you can support development via Tribute or cryptocurrency.",
+        "sec_donate_desc": "If you enjoy DeckBridge, you can support development via Boosty, Tribute, or cryptocurrency.",
         "btn_donate_tribute": "Tribute (Card / TG)",
+        "btn_donate_boosty": "Boosty (Card / RUB)",
+        "btn_show_crypto_qr": "Crypto Wallets (QR)",
+        "btn_copy_address": "Copy Address",
         "btn_copy_usdt": "Copy USDT (BEP20)",
         "btn_show_qr": "QR Code",
         "toast_usdt_copied": "USDT (BEP20) address copied to clipboard!",
+        "toast_address_copied": "{coin} address copied to clipboard!",
         "dialog_qr_title": "USDT (BEP20) Donation",
+        "dialog_crypto_title": "Cryptocurrency Donation",
         "dialog_qr_network_notice": "Network: BNB Smart Chain (BEP20). Only send USDT on the BSC network.",
         "badge_copied": "Copied!",
 
@@ -290,12 +300,17 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
 
     "de": {
         "sec_donate": "DeckBridge unterstützen ❤️",
-        "sec_donate_desc": "Wenn Ihnen DeckBridge gefällt, können Sie die Entwicklung über Tribute oder Krypto unterstützen.",
+        "sec_donate_desc": "Wenn Ihnen DeckBridge gefällt, können Sie die Entwicklung über Boosty, Tribute oder Krypto unterstützen.",
         "btn_donate_tribute": "Tribute (Karte / TG)",
+        "btn_donate_boosty": "Boosty (Karte / RUB)",
+        "btn_show_crypto_qr": "Krypto-Wallets (QR)",
+        "btn_copy_address": "Adresse kopieren",
         "btn_copy_usdt": "USDT (BEP20) kopieren",
         "btn_show_qr": "QR-Code",
         "toast_usdt_copied": "USDT (BEP20) Adresse in die Zwischenablage kopiert!",
+        "toast_address_copied": "{coin} Adresse in die Zwischenablage kopiert!",
         "dialog_qr_title": "USDT (BEP20) Spende",
+        "dialog_crypto_title": "Krypto-Spende",
         "dialog_qr_network_notice": "Netzwerk: BNB Smart Chain (BEP20). Senden Sie nur USDT über das BSC-Netzwerk.",
         "badge_copied": "Kopiert!",
 
@@ -423,12 +438,17 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
 
     "fr": {
         "sec_donate": "Soutenir DeckBridge ❤️",
-        "sec_donate_desc": "Si vous appréciez DeckBridge, vous pouvez soutenir le développement via Tribute ou crypto.",
+        "sec_donate_desc": "Si vous appréciez DeckBridge, vous pouvez soutenir le développement via Boosty, Tribute ou crypto.",
         "btn_donate_tribute": "Tribute (Carte / TG)",
+        "btn_donate_boosty": "Boosty (Carte / RUB)",
+        "btn_show_crypto_qr": "Portefeuilles crypto (QR)",
+        "btn_copy_address": "Copier l'adresse",
         "btn_copy_usdt": "Copier USDT (BEP20)",
-        "btn_show_qr": "QR Code",
+        "btn_show_qr": "Code QR",
         "toast_usdt_copied": "Adresse USDT (BEP20) copiée dans le presse-papiers !",
+        "toast_address_copied": "Adresse {coin} copiée dans le presse-papiers !",
         "dialog_qr_title": "Don USDT (BEP20)",
+        "dialog_crypto_title": "Don en cryptomonnaie",
         "dialog_qr_network_notice": "Réseau : BNB Smart Chain (BEP20). Envoyez uniquement des USDT sur le réseau BSC.",
         "badge_copied": "Copié !",
 
@@ -556,12 +576,17 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
 
     "es": {
         "sec_donate": "Apoyar a DeckBridge ❤️",
-        "sec_donate_desc": "Si te gusta DeckBridge, puedes apoyar el desarrollo mediante Tribute o criptomonedas.",
+        "sec_donate_desc": "Si te gusta DeckBridge, puedes apoyar el desarrollo mediante Boosty, Tribute o criptomonedas.",
         "btn_donate_tribute": "Tribute (Tarjeta / TG)",
+        "btn_donate_boosty": "Boosty (Tarjeta / RUB)",
+        "btn_show_crypto_qr": "Billeteras cripto (QR)",
+        "btn_copy_address": "Copiar dirección",
         "btn_copy_usdt": "Copiar USDT (BEP20)",
         "btn_show_qr": "Código QR",
         "toast_usdt_copied": "¡Dirección USDT (BEP20) copiada al portapapeles!",
+        "toast_address_copied": "¡Dirección {coin} copiada al portapapeles!",
         "dialog_qr_title": "Donación USDT (BEP20)",
+        "dialog_crypto_title": "Donación con criptomonedas",
         "dialog_qr_network_notice": "Red: BNB Smart Chain (BEP20). Envíe únicamente USDT en la red BSC.",
         "badge_copied": "¡Copiado!",
 
@@ -689,12 +714,17 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
 
     "zh": {
         "sec_donate": "支持 DeckBridge ❤️",
-        "sec_donate_desc": "如果您喜欢 DeckBridge，可以通过 Tribute 或加密货币支持后续开发。",
+        "sec_donate_desc": "如果您喜欢 DeckBridge，可以通过 Boosty、Tribute 或加密货币支持后续开发。",
         "btn_donate_tribute": "Tribute 赞助 (卡 / TG)",
+        "btn_donate_boosty": "Boosty (卡 / RUB)",
+        "btn_show_crypto_qr": "加密钱包 (QR)",
+        "btn_copy_address": "复制地址",
         "btn_copy_usdt": "复制 USDT (BEP20)",
         "btn_show_qr": "二维码",
         "toast_usdt_copied": "USDT (BEP20) 地址已复制到剪贴板！",
+        "toast_address_copied": "{coin} 地址已复制到剪贴板！",
         "dialog_qr_title": "USDT (BEP20) 赞助",
+        "dialog_crypto_title": "加密货币赞助",
         "dialog_qr_network_notice": "网络：BNB Smart Chain (BEP20)。请仅通过 BSC 网络转账 USDT。",
         "badge_copied": "已复制！",
 
@@ -822,12 +852,17 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
 
     "ja": {
         "sec_donate": "DeckBridge を支援する ❤️",
-        "sec_donate_desc": "DeckBridge を気に入っていただけたら、Tribute や暗号資産で開発を支援できます。",
+        "sec_donate_desc": "DeckBridge を気に入っていただけたら、Boosty、Tribute や暗号資産で開発を支援できます。",
         "btn_donate_tribute": "Tribute で支援 (カード / TG)",
+        "btn_donate_boosty": "Boosty (カード / RUB)",
+        "btn_show_crypto_qr": "暗号資産ウォレット (QR)",
+        "btn_copy_address": "アドレスをコピー",
         "btn_copy_usdt": "USDT (BEP20) をコピー",
         "btn_show_qr": "QRコード",
         "toast_usdt_copied": "USDT (BEP20) アドレスをクリップボードにコピーしました！",
+        "toast_address_copied": "{coin} アドレスをクリップボードにコピーしました！",
         "dialog_qr_title": "USDT (BEP20) 支援",
+        "dialog_crypto_title": "暗号資産支援",
         "dialog_qr_network_notice": "ネットワーク: BNB Smart Chain (BEP20)。BSC ネットワーク上の USDT のみ送信してください。",
         "badge_copied": "コピー完了！",
 

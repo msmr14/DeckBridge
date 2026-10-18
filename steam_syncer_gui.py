@@ -1504,65 +1504,116 @@ class CoverSelectorDialog(MessageBoxBase):
         return self.selected_cover_path
 
 
+CRYPTO_WALLETS = [
+    {
+        "id": "usdt_bep20",
+        "name": "USDT (BNB Smart Chain / BEP20)",
+        "network": "BNB Smart Chain (BSC / BEP20)",
+        "symbol": "USDT",
+        "address": "0xb9e67030ab0f38d1d88e4eaa605fb2acf0aa0ba3",
+        "qr": "donate_usdt_bep20.png",
+        "notice": "Сеть: BNB Smart Chain (BEP20). Отправляйте только USDT в сети BSC."
+    },
+    {
+        "id": "usdt_trc20",
+        "name": "USDT (TRON / TRC20)",
+        "network": "TRON (TRC20)",
+        "symbol": "USDT",
+        "address": "TQ4RwzWxs4kD6WXFgJkejRMSeAPsGUTv44",
+        "qr": "donate_usdt_trc20.png",
+        "notice": "Сеть: TRON (TRC20). Отправляйте только USDT в сети TRC20."
+    },
+    {
+        "id": "usdc_sol",
+        "name": "USDC (Solana / SOL)",
+        "network": "Solana (SOL)",
+        "symbol": "USDC",
+        "address": "7SjWhmXyAQ2xVxB3BNuxHk1mQW8P5dg3aXVtr1eyT6qF",
+        "qr": "donate_usdc_sol.png",
+        "notice": "Сеть: Solana (SOL). Отправляйте только USDC в сети Solana."
+    },
+    {
+        "id": "ltc",
+        "name": "Litecoin (LTC Native)",
+        "network": "Litecoin (LTC)",
+        "symbol": "LTC",
+        "address": "LRBmSE6GuURdMJzTB971BAz4Z8Z9UXnPbF",
+        "qr": "donate_ltc.png",
+        "notice": "Сеть: Litecoin (LTC). Отправляйте только монеты Litecoin (LTC)."
+    }
+]
+
+
 class CryptoDonationDialog(MessageBoxBase):
     """
     Fluent dialog displaying cryptocurrency donation details, QR code,
-    and one-click clipboard copying.
+    and one-click clipboard copying for multiple coins.
     """
-    USDT_ADDRESS = "0xb9e67030ab0f38d1d88e4eaa605fb2acf0aa0ba3"
-
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, default_coin_idx=0):
         super().__init__(parent=parent)
-        self.widget.setMinimumWidth(440)
-        self.widget.setMaximumWidth(480)
+        self.widget.setMinimumWidth(460)
+        self.widget.setMaximumWidth(500)
 
-        self.titleLabel = SubtitleLabel(tr("dialog_qr_title"), self.widget)
+        self.titleLabel = SubtitleLabel(tr("dialog_crypto_title"), self.widget)
         self.viewLayout.addWidget(self.titleLabel)
 
-        self.descLabel = CaptionLabel(
-            "Tether USD (USDT)\n"
-            + tr("dialog_qr_network_notice"),
-            self.widget
-        )
+        self.cmb_coin = ComboBox(self.widget)
+        for coin in CRYPTO_WALLETS:
+            self.cmb_coin.addItem(coin["name"])
+        self.viewLayout.addWidget(self.cmb_coin)
+
+        self.descLabel = CaptionLabel("", self.widget)
         self.descLabel.setWordWrap(True)
         self.viewLayout.addWidget(self.descLabel)
 
         # QR Code Display
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        qr_path = os.path.join(base_dir, "Assets", "donate_usdt_bep20.png")
-        if not os.path.isfile(qr_path):
-            qr_path = os.path.join(base_dir, "assets", "donate_usdt_bep20.png")
-
         qr_container = QHBoxLayout()
         qr_container.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl_qr = QLabel(self.widget)
-        if os.path.isfile(qr_path):
-            pix = QPixmap(qr_path).scaled(180, 180, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-            lbl_qr.setPixmap(pix)
-        lbl_qr.setFixedSize(180, 180)
-        lbl_qr.setStyleSheet("background: white; border-radius: 8px; padding: 4px;")
-        lbl_qr.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        qr_container.addWidget(lbl_qr)
+        self.lbl_qr = QLabel(self.widget)
+        self.lbl_qr.setFixedSize(180, 180)
+        self.lbl_qr.setStyleSheet("background: white; border-radius: 8px; padding: 4px;")
+        self.lbl_qr.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        qr_container.addWidget(self.lbl_qr)
         self.viewLayout.addLayout(qr_container)
 
         # Address box with copy button
         addr_row = QHBoxLayout()
         addr_row.setSpacing(8)
         self.txt_addr = LineEdit(self.widget)
-        self.txt_addr.setText(self.USDT_ADDRESS)
         self.txt_addr.setReadOnly(True)
-        self.btn_copy = PushButton(tr("btn_copy_usdt"), self.widget, FIF.COPY)
+        self.btn_copy = PushButton(tr("btn_copy_address"), self.widget, FIF.COPY)
 
         def on_copy():
             cb = QApplication.clipboard()
             if cb:
-                cb.setText(self.USDT_ADDRESS)
+                cb.setText(self.txt_addr.text())
             self.btn_copy.setText(tr("badge_copied"))
+            QTimer.singleShot(2500, lambda: self.btn_copy.setText(tr("btn_copy_address")))
 
         self.btn_copy.clicked.connect(on_copy)
         addr_row.addWidget(self.txt_addr, 1)
         addr_row.addWidget(self.btn_copy)
         self.viewLayout.addLayout(addr_row)
+
+        def update_coin(idx):
+            coin = CRYPTO_WALLETS[idx]
+            self.descLabel.setText(coin["notice"])
+            self.txt_addr.setText(coin["address"])
+            self.btn_copy.setText(tr("btn_copy_address"))
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            qr_path = os.path.join(base_dir, "Assets", coin["qr"])
+            if not os.path.isfile(qr_path):
+                qr_path = os.path.join(base_dir, "assets", coin["qr"])
+            if os.path.isfile(qr_path):
+                pix = QPixmap(qr_path).scaled(172, 172, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                self.lbl_qr.setPixmap(pix)
+            else:
+                self.lbl_qr.clear()
+
+        self.cmb_coin.currentIndexChanged.connect(update_coin)
+        if 0 <= default_coin_idx < len(CRYPTO_WALLETS):
+            self.cmb_coin.setCurrentIndex(default_coin_idx)
+        update_coin(self.cmb_coin.currentIndex())
 
         self.yesButton.setText("OK")
         self.cancelButton.hide()
@@ -2540,40 +2591,51 @@ class MainWindow(FluentWindow):
         donate_header.addLayout(donate_title_col, 1)
         donate_layout.addLayout(donate_header)
 
-        # Row 1: Tribute Donation
-        tribute_row = QHBoxLayout()
+        # Responsive FlowLayout for Support Buttons (zero horizontal overflow, wraps gracefully)
+        buttons_flow = FlowLayout(needAni=False)
+        buttons_flow.setSpacing(10)
+        buttons_flow.setContentsMargins(0, 4, 0, 0)
+
         self.btn_tribute = PrimaryPushButton(tr("btn_donate_tribute"), self.donate_card, FIF.HEART)
         self.btn_tribute.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://web.tribute.tg/d/SsO")))
-        tribute_row.addWidget(self.btn_tribute)
-        tribute_row.addStretch(1)
-        donate_layout.addLayout(tribute_row)
 
-        # Row 2: Crypto Address with Copy & QR
-        crypto_row = QHBoxLayout()
-        crypto_row.setSpacing(8)
+        self.btn_boosty = PushButton(tr("btn_donate_boosty"), self.donate_card, FIF.CAFE)
+        self.btn_boosty.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://boosty.to/n300l/donate")))
 
-        self.btn_copy_usdt = PushButton(tr("btn_copy_usdt"), self.donate_card, FIF.COPY)
+        self.btn_show_crypto = PushButton(tr("btn_show_crypto_qr"), self.donate_card, FIF.QRCODE)
+        def show_crypto_dialog():
+            dlg = CryptoDonationDialog(self)
+            dlg.exec()
+
+        self.btn_show_crypto.clicked.connect(show_crypto_dialog)
+
+        self.btn_copy_usdt = PushButton("USDT (BEP20)", self.donate_card, FIF.COPY)
         def copy_usdt_address():
             cb = QApplication.clipboard()
             if cb:
                 cb.setText("0xb9e67030ab0f38d1d88e4eaa605fb2acf0aa0ba3")
-            self.show_toast("success", title=tr("sec_donate"), content=tr("toast_usdt_copied"), duration=3500)
+            self.show_toast("success", title=tr("sec_donate"), content=tr("toast_address_copied", coin="USDT (BEP20)"), duration=3500)
             self.btn_copy_usdt.setText(tr("badge_copied"))
-            QTimer.singleShot(2500, lambda: self.btn_copy_usdt.setText(tr("btn_copy_usdt")))
-
+            QTimer.singleShot(2500, lambda: self.btn_copy_usdt.setText("USDT (BEP20)"))
         self.btn_copy_usdt.clicked.connect(copy_usdt_address)
 
-        self.btn_show_qr = PushButton(tr("btn_show_qr"), self.donate_card, FIF.QRCODE)
-        def show_qr_dialog():
-            dlg = CryptoDonationDialog(self)
-            dlg.exec()
+        self.btn_copy_trc = PushButton("USDT (TRC20)", self.donate_card, FIF.COPY)
+        def copy_trc_address():
+            cb = QApplication.clipboard()
+            if cb:
+                cb.setText("TQ4RwzWxs4kD6WXFgJkejRMSeAPsGUTv44")
+            self.show_toast("success", title=tr("sec_donate"), content=tr("toast_address_copied", coin="USDT (TRC20)"), duration=3500)
+            self.btn_copy_trc.setText(tr("badge_copied"))
+            QTimer.singleShot(2500, lambda: self.btn_copy_trc.setText("USDT (TRC20)"))
+        self.btn_copy_trc.clicked.connect(copy_trc_address)
 
-        self.btn_show_qr.clicked.connect(show_qr_dialog)
+        buttons_flow.addWidget(self.btn_tribute)
+        buttons_flow.addWidget(self.btn_boosty)
+        buttons_flow.addWidget(self.btn_show_crypto)
+        buttons_flow.addWidget(self.btn_copy_usdt)
+        buttons_flow.addWidget(self.btn_copy_trc)
 
-        crypto_row.addWidget(self.btn_copy_usdt)
-        crypto_row.addWidget(self.btn_show_qr)
-        crypto_row.addStretch(1)
-        donate_layout.addLayout(crypto_row)
+        donate_layout.addLayout(buttons_flow)
 
         layout.addWidget(self.donate_card)
 
@@ -2746,10 +2808,10 @@ class MainWindow(FluentWindow):
             self.lbl_donate_desc.setText(tr("sec_donate_desc"))
         if hasattr(self, 'btn_tribute'):
             self.btn_tribute.setText(tr("btn_donate_tribute"))
-        if hasattr(self, 'btn_copy_usdt'):
-            self.btn_copy_usdt.setText(tr("btn_copy_usdt"))
-        if hasattr(self, 'btn_show_qr'):
-            self.btn_show_qr.setText(tr("btn_show_qr"))
+        if hasattr(self, 'btn_boosty'):
+            self.btn_boosty.setText(tr("btn_donate_boosty"))
+        if hasattr(self, 'btn_show_crypto'):
+            self.btn_show_crypto.setText(tr("btn_show_crypto_qr"))
 
         if getattr(self, 'lbl_metric_status', None):
             last_report = getattr(self, '_last_report', None)
