@@ -136,6 +136,23 @@ def _do_test_gui():
                 assert engine.duration == 140
                 assert engine.fps >= 60
 
+    # Functional scroll test: simulate wheel event and verify positive progression without reverse bouncing
+    from PyQt6.QtGui import QWheelEvent
+    from PyQt6.QtCore import QPointF, QPoint
+    window.switchTo(window.settings_interface)
+    app.processEvents()
+    initial_val = window.settings_scroll.verticalScrollBar().value()
+    wheel_ev = QWheelEvent(
+        QPointF(500, 350), QPointF(500, 350), QPoint(0, 0), QPoint(0, -120),
+        Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier, Qt.ScrollPhase.NoScrollPhase, False
+    )
+    app.sendEvent(window.settings_scroll.viewport(), wheel_ev)
+    for _ in range(30):
+        app.processEvents()
+        time.sleep(0.01)
+    scrolled_val = window.settings_scroll.verticalScrollBar().value()
+    assert scrolled_val > initial_val, f"Scroll failed to advance: initial={initial_val}, scrolled={scrolled_val}"
+
     # 4. Test Windows 11 system accent detection
     accent = get_windows_accent_color()
     print(f"Detected Windows 11 system accent: {accent.name() if accent else 'None'}")

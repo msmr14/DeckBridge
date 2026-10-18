@@ -639,8 +639,9 @@ class TiltPosterLabel(CaptionLabel):
 
 def setup_high_hz_smooth_scroll(scroll_area: ScrollArea):
     """
-    Configures smooth scrolling to match the user's native monitor refresh rate (e.g. 200 Hz).
-    Eliminates 60 Hz frame caps and 400ms deceleration drag.
+    Configures smooth scrolling to match the user's native monitor refresh rate (e.g. 144-240 Hz).
+    Enables hardware-accelerated QPropertyAnimation to eliminate frame caps, float-step
+    reverse-bounce bugs, and deceleration drag.
     """
     screen = QApplication.primaryScreen()
     hz = 60
@@ -651,9 +652,15 @@ def setup_high_hz_smooth_scroll(scroll_area: ScrollArea):
             hz = 60
     hz = max(60, min(360, hz))
 
-    delegate = getattr(scroll_area, 'scrollDelagate', None)
+    delegate = getattr(scroll_area, 'scrollDelagate', None) or getattr(scroll_area, 'delegate', None)
     if not delegate:
         return
+
+    # Enable native QPropertyAnimation for silky smooth, bounce-free scrolling synchronized with display Hz
+    delegate.useAni = True
+    if hasattr(delegate, 'vScrollBar') and delegate.vScrollBar:
+        delegate.vScrollBar.setScrollAnimation(duration=200, easing=QEasingCurve.Type.OutCubic)
+        delegate.vScrollBar.setSingleStep(24)
 
     vs = getattr(delegate, 'verticalSmoothScroll', None)
     if not vs:
@@ -667,6 +674,27 @@ def setup_high_hz_smooth_scroll(scroll_area: ScrollArea):
             engine.acceleration = 1
             if hasattr(engine, 'minDuration'):
                 engine.minDuration = 80
+
+    # Safety patch on fixedStepScrollEngine against QFluentWidgets float division bounce bug
+    f_engine = getattr(vs, 'fixedStepScrollEngine', None)
+    if f_engine:
+        orig_wheel = f_engine.wheelEvent
+        def _safe_wheel(e, delta, eng=f_engine):
+            orig_wheel(e, delta)
+            eng.stepsTotal = max(1, int(round(eng.stepsTotal)))
+            if eng.stepsLeftQueue:
+                eng.stepsLeftQueue[-1][1] = eng.stepsTotal
+        f_engine.wheelEvent = _safe_wheel
+
+        def _safe_getTotalDelta(eng=f_engine):
+            totalDelta = 0
+            for i in eng.stepsLeftQueue:
+                totalDelta += eng._subDelta(i[0], max(0, i[1]))
+                i[1] -= 1
+            while eng.stepsLeftQueue and eng.stepsLeftQueue[0][1] <= 0:
+                eng.stepsLeftQueue.popleft()
+            return totalDelta
+        f_engine._getTotalDelta = _safe_getTotalDelta
 
     scroll_area.verticalScrollBar().setSingleStep(24)
 
