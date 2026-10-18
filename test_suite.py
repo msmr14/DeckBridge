@@ -911,12 +911,13 @@ class LinuxCompatibilityTests(unittest.TestCase):
             self.assertFalse(steam_lifecycle.is_steam_fully_closed())
 
     def test_linux_big_picture_mode_detection(self):
-        # 1. Detected via SteamDeck=1 environment variable
+        # 1. When Steam is NOT running, Big Picture must return False even on Steam Deck
         with patch('sys.platform', 'linux'), \
+             patch('steam_lifecycle.get_running_steam_pids', return_value=set()), \
              patch.dict(os.environ, {"SteamDeck": "1"}):
-            self.assertTrue(steam_lifecycle.is_big_picture_mode_running())
+            self.assertFalse(steam_lifecycle.is_big_picture_mode_running())
 
-        # 2. Detected via /proc cmdline with -gamepadui
+        # 2. Detected via /proc cmdline with -gamepadui when Steam is running
         real_open = open
         def safe_cmd_open(file, *args, **kwargs):
             if 'cmdline' in str(file):
@@ -924,12 +925,32 @@ class LinuxCompatibilityTests(unittest.TestCase):
             return real_open(file, *args, **kwargs)
 
         with patch('sys.platform', 'linux'), \
+             patch('steam_lifecycle.get_running_steam_pids', return_value={5678}), \
              patch.dict(os.environ, {}, clear=True), \
              patch('os.path.isdir', lambda p: str(p).rstrip('/\\') == '/proc'), \
-             patch('os.listdir', lambda p: ["5678"] if str(p).rstrip('/\\') == '/proc' else []), \
              patch('os.path.isfile', lambda p: 'cmdline' in str(p)), \
              patch('builtins.open', safe_cmd_open):
             self.assertTrue(steam_lifecycle.is_big_picture_mode_running())
+
+        # 3. Detected via active gamescope session when Steam is running
+        with patch('sys.platform', 'linux'), \
+             patch('steam_lifecycle.get_running_steam_pids', return_value={5678}), \
+             patch.dict(os.environ, {"XDG_CURRENT_DESKTOP": "gamescope"}):
+            self.assertTrue(steam_lifecycle.is_big_picture_mode_running())
+
+        # 4. In standard Desktop mode (KDE) without -gamepadui, returns False
+        def safe_desktop_cmd_open(file, *args, **kwargs):
+            if 'cmdline' in str(file):
+                return mock_open(read_data=b"steam\x00")(file, *args, **kwargs)
+            return real_open(file, *args, **kwargs)
+
+        with patch('sys.platform', 'linux'), \
+             patch('steam_lifecycle.get_running_steam_pids', return_value={5678}), \
+             patch.dict(os.environ, {"XDG_CURRENT_DESKTOP": "KDE", "SteamDeck": "1"}), \
+             patch('os.path.isdir', lambda p: str(p).rstrip('/\\') == '/proc'), \
+             patch('os.path.isfile', lambda p: 'cmdline' in str(p)), \
+             patch('builtins.open', safe_desktop_cmd_open):
+            self.assertFalse(steam_lifecycle.is_big_picture_mode_running())
 
     def test_linux_resurrect_steam_detached(self):
         with patch('sys.platform', 'linux'), \
@@ -954,6 +975,26 @@ class LinuxCompatibilityTests(unittest.TestCase):
             # Junk files are rejected
             self.assertFalse(steam_syncer.is_valid_executable("unins000.exe"))
             self.assertFalse(steam_syncer.is_valid_executable("UnityCrashHandler64.exe"))
+            # Common non-executable extensionless files must be rejected
+            self.assertFalse(steam_syncer.is_valid_executable("README"))
+            self.assertFalse(steam_syncer.is_valid_executable("LICENSE"))
+            self.assertFalse(steam_syncer.is_valid_executable("COPYING"))
+            self.assertFalse(steam_syncer.is_valid_executable("Makefile"))
+            self.assertFalse(steam_syncer.is_valid_executable(".gitignore"))
+
+        # Test find_best_game_exe on Linux with ELF header
+        with tempfile.TemporaryDirectory() as tmp_g:
+            elf_file = os.path.join(tmp_g, "celeste")
+            with open(elf_file, 'wb') as f:
+                f.write(b'\x7fELF' + b'\x00' * 100)
+            txt_file = os.path.join(tmp_g, "README")
+            with open(txt_file, 'wb') as f:
+                f.write(b'This is a readme file.')
+
+            with patch('sys.platform', 'linux'):
+                found = steam_syncer.find_best_game_exe(tmp_g, "Celeste")
+                self.assertIsNotNone(found)
+                self.assertEqual(found['name'], "celeste")
 
 
 if __name__ == '__main__':

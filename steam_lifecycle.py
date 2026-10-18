@@ -223,27 +223,37 @@ def get_running_steam_pids() -> set:
 def is_big_picture_mode_running() -> bool:
     """
     Detects whether Steam Big Picture / GamepadUI is currently open.
-    On Linux / SteamOS: inspects /proc cmdlines for -gamepadui or -tenfoot.
+    On Linux / SteamOS: inspects running Steam process cmdlines for -gamepadui, -tenfoot,
+    or checks active gamescope session.
     On Windows: checks top-level Windows for Steam Big Picture window class and confirms PID.
     """
     if sys.platform != "win32":
+        # 1. If Steam is not running at all, Big Picture cannot be running
+        pids = get_running_steam_pids()
+        if not pids:
+            return False
+
+        # 2. Inspect /proc/<pid>/cmdline for running Steam processes
         try:
             if os.path.isdir('/proc'):
-                for pid in os.listdir('/proc'):
-                    if pid.isdigit():
-                        try:
-                            cmd_file = os.path.join('/proc', pid, 'cmdline')
-                            if os.path.isfile(cmd_file):
-                                with open(cmd_file, 'rb') as f:
-                                    cmd = f.read().decode('utf-8', errors='ignore').lower()
-                                    if 'steam' in cmd and ('-gamepadui' in cmd or '-tenfoot' in cmd):
-                                        return True
-                        except (IOError, OSError):
-                            continue
+                for pid in pids:
+                    try:
+                        cmd_file = os.path.join('/proc', str(pid), 'cmdline')
+                        if os.path.isfile(cmd_file):
+                            with open(cmd_file, 'rb') as f:
+                                cmd = f.read().decode('utf-8', errors='ignore').lower()
+                                if '-gamepadui' in cmd or '-tenfoot' in cmd:
+                                    return True
+                    except (IOError, OSError):
+                        continue
         except Exception:
             pass
-        if os.environ.get("SteamDeck") == "1":
+
+        # 3. Check if current session is Gamescope (Steam Deck Gaming Mode)
+        session_desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
+        if "gamescope" in session_desktop or os.environ.get("GAMESCOPE_WAYLAND_DISPLAY"):
             return True
+
         return False
 
     try:
@@ -273,23 +283,26 @@ def request_steam_shutdown(steam_path: str) -> bool:
     """
     if sys.platform != "win32":
         shutdown_cmds = []
+        if steam_path and 'com.valvesoftware.Steam' in steam_path:
+            shutdown_cmds.append(["flatpak", "run", "com.valvesoftware.Steam", "-shutdown"])
         if steam_path and os.path.isfile(os.path.join(steam_path, "steam.sh")):
             shutdown_cmds.append([os.path.join(steam_path, "steam.sh"), "-shutdown"])
         if shutil.which("steam"):
             shutdown_cmds.append(["steam", "-shutdown"])
-        if shutil.which("flatpak"):
+        if shutil.which("flatpak") and ["flatpak", "run", "com.valvesoftware.Steam", "-shutdown"] not in shutdown_cmds:
             shutdown_cmds.append(["flatpak", "run", "com.valvesoftware.Steam", "-shutdown"])
 
         for cmd in shutdown_cmds:
             try:
-                subprocess.run(cmd, capture_output=True, timeout=4, check=False)
-                return True
+                res = subprocess.run(cmd, capture_output=True, timeout=4, check=False)
+                if res.returncode == 0:
+                    return True
             except Exception:
                 continue
 
         try:
-            subprocess.run(['pkill', '-TERM', '-x', 'steam'], capture_output=True, timeout=3, check=False)
-            return True
+            res = subprocess.run(['pkill', '-TERM', '-x', 'steam'], capture_output=True, timeout=3, check=False)
+            return res.returncode == 0
         except Exception:
             return False
 
@@ -581,6 +594,13 @@ class StagedSyncSession:
             already_exists = norm_exe in existing_exes
 
             if not already_exists:
+                if sys.platform != 'win32' and os.path.isfile(clean_exe_path):
+                    try:
+                        st = os.stat(clean_exe_path)
+                        if not (st.st_mode & stat.S_IXUSR):
+                            os.chmod(clean_exe_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                    except Exception:
+                        pass
                 clean_app_name = clean_name.replace('\0', '').strip()
                 start_dir_raw = game.get('start_dir') or os.path.dirname(clean_exe_path)
                 clean_start_dir = os.path.normpath(start_dir_raw.replace('\0', '').strip().strip('"\''))

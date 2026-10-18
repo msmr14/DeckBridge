@@ -1588,8 +1588,9 @@ class MainWindow(FluentWindow):
         # Initialize language manager
         i18n.I18NManager.instance().set_language(self.config.get('language', 'auto'))
 
-        # Window icon: prefer DeckBridge.ico, fallback to app_icon.ico
-        for ic in ("DeckBridge.ico", "app_icon.ico", "DeckBridge_logo.png"):
+        # Window icon: prefer deckbridge.png on Linux, DeckBridge.ico on Windows
+        icon_names = ("DeckBridge.ico", "deckbridge.png", "app_icon.ico", "DeckBridge_logo.png") if sys.platform == 'win32' else ("deckbridge.png", "DeckBridge.ico", "app_icon.ico", "DeckBridge_logo.png")
+        for ic in icon_names:
             found = False
             for b in (BASE_DIR, os.path.dirname(sys.executable), os.path.dirname(os.path.abspath(__file__))):
                 ip = os.path.join(b, ic)
@@ -3681,13 +3682,17 @@ def main():
 
     configure_high_dpi()
     app = get_or_create_qapp()
+    app.setApplicationName("DeckBridge")
+    app.setApplicationDisplayName("DeckBridge")
+    app.setOrganizationName("DeckBridge")
     if sys.platform != "win32":
         try:
             app.setDesktopFileName("deckbridge.desktop")
         except Exception:
             pass
     base_dir = BASE_DIR
-    for ic in ("DeckBridge.ico", "app_icon.ico", "DeckBridge_logo.png"):
+    icon_names = ("DeckBridge.ico", "deckbridge.png", "app_icon.ico", "DeckBridge_logo.png") if sys.platform == 'win32' else ("deckbridge.png", "DeckBridge.ico", "app_icon.ico", "DeckBridge_logo.png")
+    for ic in icon_names:
         ip = os.path.join(base_dir, ic)
         if os.path.isfile(ip):
             app.setWindowIcon(QIcon(ip))

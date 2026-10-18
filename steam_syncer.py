@@ -63,6 +63,15 @@ IGNORE_SUBFOLDERS = {
     'ea desktop', 'origin games', 'epic games', 'epicgames'
 }
 
+# Common filenames without extensions on Linux/Unix that are documentation or build metadata, never game executables
+NON_EXECUTABLE_NAMES = {
+    'readme', 'license', 'licence', 'copying', 'authors', 'credits',
+    'changelog', 'changes', 'todo', 'version', 'build', 'makefile',
+    'dockerfile', 'gemfile', 'rakefile', 'procfile', 'notice', 'news',
+    'thanks', 'patents', 'faq', 'security', 'contributing', 'install',
+    'requirements', 'manifest', 'history', 'notes', 'release_notes'
+}
+
 # Root directory names that must never be treated as standalone single games
 IGNORE_ROOT_NAMES = {
     'epic games', 'epicgames', 'gog games', 'gog galaxy', 'games', 'gamess', 'игры',
@@ -553,11 +562,13 @@ def close_steam_client(timeout_sec: float = 6.0, steam_path: Optional[str] = Non
     if sys.platform != 'win32':
         sp = steam_path or get_steam_path()
         shutdown_cmds = []
+        if sp and 'com.valvesoftware.Steam' in sp:
+            shutdown_cmds.append(['flatpak', 'run', 'com.valvesoftware.Steam', '-shutdown'])
         if sp and os.path.isfile(os.path.join(sp, 'steam.sh')):
             shutdown_cmds.append([os.path.join(sp, 'steam.sh'), '-shutdown'])
         if shutil.which('steam'):
             shutdown_cmds.append(['steam', '-shutdown'])
-        if shutil.which('flatpak'):
+        if shutil.which('flatpak') and ['flatpak', 'run', 'com.valvesoftware.Steam', '-shutdown'] not in shutdown_cmds:
             shutdown_cmds.append(['flatpak', 'run', 'com.valvesoftware.Steam', '-shutdown'])
 
         for cmd in shutdown_cmds:
@@ -1086,6 +1097,8 @@ def is_valid_executable(filename: str, clean_name: str = "") -> bool:
     if not filename or not isinstance(filename, str):
         return False
     lower = filename.lower()
+    if lower.startswith('.'):
+        return False
     if sys.platform == 'win32':
         if not lower.endswith('.exe'):
             return False
@@ -1094,6 +1107,10 @@ def is_valid_executable(filename: str, clean_name: str = "") -> bool:
         valid_exts = ('.exe', '.sh', '.x86_64', '.x86', '.bin', '.appimage')
         if not lower.endswith(valid_exts):
             if '.' in lower:
+                return False
+            # Extensionless file: reject known documentation/build files
+            name_part = lower.split('.')[0]
+            if name_part in NON_EXECUTABLE_NAMES:
                 return False
     clean_lower = clean_name.lower() if clean_name else ""
 
@@ -1146,6 +1163,17 @@ def find_best_game_exe(game_folder_path: str, clean_name: str, max_depth: int = 
         for f in files:
             if is_valid_executable(f, clean_name=clean_name):
                 full_path = os.path.join(root, f)
+                # On Linux, for extensionless candidates, verify ELF binary magic bytes, script shebang, or executable bit
+                if sys.platform != 'win32' and '.' not in f:
+                    try:
+                        with open(full_path, 'rb') as probe_f:
+                            header = probe_f.read(4)
+                            if not (header.startswith(b'\x7fELF') or header.startswith(b'#!')):
+                                if not os.access(full_path, os.X_OK):
+                                    continue
+                    except Exception:
+                        if not os.access(full_path, os.X_OK):
+                            continue
                 try:
                     size = os.path.getsize(full_path)
                     candidates.append({
@@ -2611,6 +2639,13 @@ def add_games_to_shortcuts(
         game['grid_id_64'] = grid_id_64
 
         clean_exe_path = os.path.normpath(exe_path.replace('\0', '').strip().strip('"\''))
+        if sys.platform != 'win32' and os.path.isfile(clean_exe_path):
+            try:
+                st = os.stat(clean_exe_path)
+                if not (st.st_mode & stat.S_IXUSR):
+                    os.chmod(clean_exe_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            except Exception:
+                pass
         norm_exe = clean_exe_path.lower()
         already_exists = norm_exe in existing_exes
 

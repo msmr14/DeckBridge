@@ -63,7 +63,7 @@ jobs:
 
   test-and-build-linux:
     name: Test & Build Linux / Steam Deck (AppImage & Tarball)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout repository
@@ -138,8 +138,17 @@ jobs:
 
       - name: Package Standalone Linux Tarball
         run: |
+          # Create a launch wrapper script inside dist/DeckBridge
+          cat << 'EOF' > dist/DeckBridge/run.sh
+          #!/bin/sh
+          SCRIPT_DIR="$(dirname "$(readlink -f "${0}")")"
+          exec "${SCRIPT_DIR}/DeckBridge" "$@"
+          EOF
+          chmod +x dist/DeckBridge/run.sh
+          cp deckbridge.desktop dist/DeckBridge/
+          cp deckbridge.png dist/DeckBridge/
           cd dist
-          tar -czvf DeckBridge-Linux-x64.tar.gz -C DeckBridge .
+          tar -czvf DeckBridge-Linux-x64.tar.gz DeckBridge
           cd ..
 
       - name: Build Native Steam Deck AppImage
@@ -163,10 +172,12 @@ jobs:
           # 4. Create AppRun entrypoint script
           cat << 'EOF' > AppDir/AppRun
           #!/bin/sh
-          HERE="$(dirname "$(readlink -f "${0}")")"
-          export PATH="${HERE}/usr/bin:${PATH}"
-          export LD_LIBRARY_PATH="${HERE}/usr/bin:${LD_LIBRARY_PATH}"
-          exec "${HERE}/usr/bin/DeckBridge" "$@"
+          if [ -z "$APPDIR" ]; then
+              APPDIR="$(dirname "$(readlink -f "${0}")")"
+          fi
+          export PATH="${APPDIR}/usr/bin:${PATH}"
+          export LD_LIBRARY_PATH="${APPDIR}/usr/bin:${LD_LIBRARY_PATH}"
+          exec "${APPDIR}/usr/bin/DeckBridge" "$@"
           EOF
           chmod +x AppDir/AppRun
 
