@@ -101,14 +101,36 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Unit & Integration Tests (Headless)
+      - name: Run Test Suite (Headless)
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          pytest -v --tb=short test_suite.py
-          pytest -v --tb=short test_gui.py
-          pytest -v --tb=short test_lifecycle_mock.py
-          pytest -v --tb=short test_harness.py
+          pytest -v --tb=short test_suite.py 2>&1 | tee suite.log || (echo "### test_suite.py failed" >> $GITHUB_STEP_SUMMARY && echo '```' >> $GITHUB_STEP_SUMMARY && cat suite.log >> $GITHUB_STEP_SUMMARY && echo '```' >> $GITHUB_STEP_SUMMARY && exit 1)
+
+      - name: Run GUI Tests (Headless)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          pytest -v --tb=short test_gui.py 2>&1 | tee gui.log || (echo "### test_gui.py failed" >> $GITHUB_STEP_SUMMARY && echo '```' >> $GITHUB_STEP_SUMMARY && cat gui.log >> $GITHUB_STEP_SUMMARY && echo '```' >> $GITHUB_STEP_SUMMARY && exit 1)
+
+      - name: Run Lifecycle Tests (Headless)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          pytest -v --tb=short test_lifecycle_mock.py 2>&1 | tee lifecycle.log || (echo "### test_lifecycle_mock.py failed" >> $GITHUB_STEP_SUMMARY && echo '```' >> $GITHUB_STEP_SUMMARY && cat lifecycle.log >> $GITHUB_STEP_SUMMARY && echo '```' >> $GITHUB_STEP_SUMMARY && exit 1)
+
+      - name: Run Harness Tests (Headless)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          pytest -v --tb=short test_harness.py 2>&1 | tee harness.log || (echo "### test_harness.py failed" >> $GITHUB_STEP_SUMMARY && echo '```' >> $GITHUB_STEP_SUMMARY && cat harness.log >> $GITHUB_STEP_SUMMARY && echo '```' >> $GITHUB_STEP_SUMMARY && exit 1)
+
+      - name: Upload Test Logs on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-test-failure-logs
+          path: "*.log"
 
       - name: Build Native Linux Executable with PyInstaller
         run: |

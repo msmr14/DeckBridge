@@ -389,23 +389,24 @@ class TestSteamSyncer(unittest.TestCase):
                 save_shortcuts_vdf(vdf_path, {'shortcuts': {}})
 
                 # Executable with forward slashes
+                folder = os.path.join(tmpdir, "SlashGame")
+                exe = os.path.join(folder, "slash.exe")
                 game = {
                     'clean_name': 'Slash Game',
-                    'folder_path': tmpdir + "/SlashGame",
-                    'exe_path': tmpdir + "/SlashGame/slash.exe"
+                    'folder_path': folder.replace('\\', '/'),
+                    'exe_path': exe.replace('\\', '/')
                 }
                 added, _ = add_games_to_shortcuts(vdf_path, [game], download_artwork=False)
                 self.assertEqual(added, 1)
 
                 loaded = load_shortcuts_vdf(vdf_path)
                 entry = loaded['shortcuts']['0']
+                self.assertEqual(entry['Exe'], f'"{os.path.normpath(game["exe_path"])}"')
+                self.assertEqual(entry['StartDir'], f'"{os.path.normpath(game["folder_path"])}"')
                 if sys.platform == 'win32':
                     # Must not contain forward slashes in Windows shortcuts.vdf
                     self.assertNotIn('/', entry['Exe'])
                     self.assertNotIn('/', entry['StartDir'])
-                else:
-                    self.assertIn('/', entry['Exe'])
-                    self.assertIn('/', entry['StartDir'])
 
     def test_save_shortcuts_vdf_readonly_file(self):
         import stat
@@ -894,21 +895,20 @@ class LinuxCompatibilityTests(unittest.TestCase):
                 self.assertTrue(any("mmcblk0p1" in f for f in folders))
 
     def test_linux_process_detection(self):
-        with tempfile.TemporaryDirectory() as fake_proc:
-            # Create a mock /proc/1234/comm containing 'steam'
-            pid_dir = os.path.join(fake_proc, "1234")
-            os.makedirs(pid_dir, exist_ok=True)
-            with open(os.path.join(pid_dir, "comm"), "w", encoding="utf-8") as f:
-                f.write("steam\n")
+        real_open = open
+        def safe_proc_open(file, *args, **kwargs):
+            if 'comm' in str(file):
+                return mock_open(read_data="steam\n")(file, *args, **kwargs)
+            return real_open(file, *args, **kwargs)
 
-            with patch('sys.platform', 'linux'), \
-                 patch('os.path.isdir', lambda p: 'proc' in p), \
-                 patch('os.listdir', lambda p: ["1234"] if 'proc' in p else []), \
-                 patch('os.path.isfile', lambda p: 'comm' in p), \
-                 patch('builtins.open', mock_open(read_data="steam\n")):
-                self.assertTrue(steam_syncer.is_steam_running())
-                self.assertTrue(steam_lifecycle.is_steam_running())
-                self.assertFalse(steam_lifecycle.is_steam_fully_closed())
+        with patch('sys.platform', 'linux'), \
+             patch('os.path.isdir', lambda p: str(p).rstrip('/\\') == '/proc'), \
+             patch('os.listdir', lambda p: ["1234"] if str(p).rstrip('/\\') == '/proc' else []), \
+             patch('os.path.isfile', lambda p: 'comm' in str(p)), \
+             patch('builtins.open', safe_proc_open):
+            self.assertTrue(steam_syncer.is_steam_running())
+            self.assertTrue(steam_lifecycle.is_steam_running())
+            self.assertFalse(steam_lifecycle.is_steam_fully_closed())
 
     def test_linux_big_picture_mode_detection(self):
         # 1. Detected via SteamDeck=1 environment variable
@@ -917,12 +917,18 @@ class LinuxCompatibilityTests(unittest.TestCase):
             self.assertTrue(steam_lifecycle.is_big_picture_mode_running())
 
         # 2. Detected via /proc cmdline with -gamepadui
+        real_open = open
+        def safe_cmd_open(file, *args, **kwargs):
+            if 'cmdline' in str(file):
+                return mock_open(read_data=b"steam\x00-gamepadui\x00")(file, *args, **kwargs)
+            return real_open(file, *args, **kwargs)
+
         with patch('sys.platform', 'linux'), \
              patch.dict(os.environ, {}, clear=True), \
-             patch('os.path.isdir', lambda p: 'proc' in p), \
-             patch('os.listdir', lambda p: ["5678"] if 'proc' in p else []), \
-             patch('os.path.isfile', lambda p: 'cmdline' in p), \
-             patch('builtins.open', mock_open(read_data=b"steam\x00-gamepadui\x00")):
+             patch('os.path.isdir', lambda p: str(p).rstrip('/\\') == '/proc'), \
+             patch('os.listdir', lambda p: ["5678"] if str(p).rstrip('/\\') == '/proc' else []), \
+             patch('os.path.isfile', lambda p: 'cmdline' in str(p)), \
+             patch('builtins.open', safe_cmd_open):
             self.assertTrue(steam_lifecycle.is_big_picture_mode_running())
 
     def test_linux_resurrect_steam_detached(self):
