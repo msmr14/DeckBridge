@@ -17,6 +17,7 @@ from steam_syncer_gui import (
     MainWindow, load_app_config, save_app_config, configure_high_dpi,
     DraggableSwitchButton, TiltPosterLabel, ensure_qfluentwidgets_alive,
     get_or_create_qapp, make_cropped_thumb, CoverVariantsWorker, CoverSelectorDialog,
+    CryptoDonationDialog, CRYPTO_WALLETS, SimpleCardWidget,
     get_windows_accent_color
 )
 import i18n
@@ -531,7 +532,7 @@ def _do_test_gui():
         assert results[0]['is_local'] is True
         assert os.path.isfile(results[0]['url'])
 
-    # Test CoverSelectorDialog lifecycle and candidate rendering
+    # Test CoverSelectorDialog lifecycle, candidate rendering, Apply & Cancel
     dlg = CoverSelectorDialog("TestGame", parent=window)
     dlg._on_variants_ready([
         {'source': 'Local File', 'url': dummy_cover, 'is_local': True},
@@ -539,7 +540,214 @@ def _do_test_gui():
     ])
     assert len(dlg._candidate_cards) == 2
     assert dlg.yesButton.isEnabled() is True
-    print("GUI automated tests PASSED successfully!")
+    # Test Cancel rejection
+    dlg.cancelButton.click()
+    assert dlg.get_selected_cover_path() is None
+
+    # Test Apply acceptance
+    dlg_apply = CoverSelectorDialog("TestGame2", parent=window)
+    dlg_apply._on_variants_ready([
+        {'source': 'Local File', 'url': dummy_cover, 'is_local': True}
+    ])
+    assert len(dlg_apply._candidate_cards) == 1
+    dlg_apply._on_select_card(dlg_apply._candidate_cards[0][0], dlg_apply._candidate_cards[0][1])
+    dlg_apply.yesButton.click()
+    assert dlg_apply.get_selected_cover_path() == dummy_cover
+
+    # 13. Test Selection Toggles ("Select All" / "Deselect All") on Home Tab
+    if hasattr(window, 'scan_worker') and window.scan_worker:
+        try:
+            window.scan_worker.scan_finished.disconnect()
+        except Exception:
+            pass
+        if window.scan_worker.isRunning():
+            window.scan_worker.wait(4000)
+
+    window.switchTo(window.home_interface)
+    window.clear_game_cards()
+    test_games = []
+    for i in range(3):
+        dummy_g = {
+            'clean_name': f'Unregistered Game {i}',
+            'exe_path': rf'C:\Games\Game{i}\game{i}.exe',
+            'exe_name': f'game{i}.exe',
+            'exe_size': 1024 * 1024 * 100,
+            'folder_path': rf'C:\Games\Game{i}',
+            'is_registered': False,
+            'cover_path': None
+        }
+        test_games.append(dummy_g)
+        window.add_game_card(dummy_g)
+    window._current_games = test_games
+    window._scanned_games_count = len(test_games)
+    window._new_games_count = len(test_games)
+    window.update_sync_button_text()
+    assert hasattr(window, 'btn_select_all')
+    assert hasattr(window, 'btn_deselect_all')
+    app.processEvents()
+
+    # Deselect all
+    window.btn_deselect_all.click()
+    app.processEvents()
+    for card in window.games_container.findChildren(SimpleCardWidget):
+        chk = card.findChild(CheckBox)
+        if chk and not chk.isHidden():
+            assert chk.isChecked() is False
+    assert window.btn_sync.isEnabled() is False
+
+    # Select all
+    window.btn_select_all.click()
+    app.processEvents()
+    for card in window.games_container.findChildren(SimpleCardWidget):
+        chk = card.findChild(CheckBox)
+        if chk and not chk.isHidden():
+            assert chk.isChecked() is True
+    assert window.btn_sync.isEnabled() is True
+
+    # 14. Test Interactive Home Buttons & Steam Status Dot Click
+    assert hasattr(window, 'btn_sync')
+    assert hasattr(window, 'btn_close_steam')
+    assert hasattr(window, 'btn_launch_steam')
+    assert hasattr(window, 'btn_browse_hero')
+
+    # Test Steam status dot click callback
+    dot_clicked = []
+    window.steam_dot.clicked_callback = lambda: dot_clicked.append(True)
+    ev_press = QMouseEvent(QEvent.Type.MouseButtonPress, QPointF(16, 16), QPointF(16, 16), Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+    window.steam_dot.mousePressEvent(ev_press)
+    assert len(dot_clicked) == 1
+    window.steam_dot.clicked_callback = window.refresh_steam_status
+
+    # 15. Test Navigation and TitleBar Header Buttons
+    # Click Settings header button
+    window.btn_header_settings.click()
+    app.processEvents()
+    assert window.stackedWidget.currentWidget() == window.settings_interface
+
+    # Click Back to Home button
+    window.btn_back_home.click()
+    app.processEvents()
+    assert window.stackedWidget.currentWidget() == window.home_interface
+
+    # 16. Test Settings Tab Controls & Folder Management
+    window.switchTo(window.settings_interface)
+    app.processEvents()
+
+    # Language Dropdown Switcher (cycle through all 7 languages)
+    for idx in range(window.cmb_language.count()):
+        window.cmb_language.setCurrentIndex(idx)
+        app.processEvents()
+        lang_code = window.cmb_language.itemData(idx)
+        assert i18n.I18NManager.instance().get_current_language() == lang_code or lang_code == "auto"
+
+    # Reset back to Russian for subsequent checks
+    window.cmb_language.setCurrentIndex(window.cmb_language.findData("ru"))
+    app.processEvents()
+
+    # Test Folder Add/Remove/Detect/Reset
+    test_scan_dir = os.path.normpath(r"C:\TestMockGamesFolder")
+    if test_scan_dir not in window.game_folders:
+        window.game_folders.append(test_scan_dir)
+        window.list_folders.addItem(test_scan_dir)
+        window.persist_settings()
+    assert test_scan_dir in window.game_folders
+
+    # Remove folder via remove button
+    row_idx = -1
+    for r in range(window.list_folders.count()):
+        if window.list_folders.item(r).text() == test_scan_dir:
+            row_idx = r
+            break
+    assert row_idx >= 0
+    window.list_folders.setCurrentRow(row_idx)
+    window.btn_remove_folder.click()
+    assert test_scan_dir not in window.game_folders
+
+    # Detect launchers & reset folders buttons
+    window.btn_detect_launchers.click()
+    app.processEvents()
+    window.btn_reset_folders.click()
+    app.processEvents()
+    assert len(window.game_folders) >= 2
+
+    # Steam Path Picker and User Selector
+    window.txt_steam_path.setText(r"C:\MockSteamFolder_AutoTest")
+    window.persist_settings()
+    assert window.config['steam_path'] == r"C:\MockSteamFolder_AutoTest"
+
+    # Smart Lifecycle switch
+    assert hasattr(window, 'sw_auto_steam_lifecycle')
+    window.sw_auto_steam_lifecycle.setChecked(True)
+    assert window.config.get('auto_steam_lifecycle') is True
+    window.sw_auto_steam_lifecycle.setChecked(False)
+    assert window.config.get('auto_steam_lifecycle') is False
+
+    # Backup shortcuts switch
+    window.sw_backup.setChecked(True)
+    assert window.config.get('backup_shortcuts') is True
+    window.sw_backup.setChecked(False)
+    assert window.config.get('backup_shortcuts') is False
+
+    # Download artwork switch
+    window.sw_download_art.setChecked(False)
+    assert window.config.get('download_artwork') is False
+    window.sw_download_art.setChecked(True)
+    assert window.config.get('download_artwork') is True
+
+    # SteamGridDB API key input
+    window.txt_steamgriddb_key.setText("mock_sgdb_key_999")
+    assert window.config.get('steamgriddb_key') == "mock_sgdb_key_999"
+    window.txt_steamgriddb_key.setText("")
+    assert window.config.get('steamgriddb_key') == ""
+
+    # Operation Log clear & copy buttons
+    window.append_log("DeckBridge automated click test log entry")
+    assert "DeckBridge automated click test log entry" in window.log_text.toPlainText()
+    window.btn_copy_log.click()
+    cb = QApplication.clipboard()
+    if cb:
+        assert "DeckBridge automated click test log entry" in cb.text()
+    window.btn_clear_log.click()
+    assert window.log_text.toPlainText() == ""
+
+    # 17. Test Donation Section & Multi-Wallet Crypto Dialog
+    assert hasattr(window, 'btn_tribute')
+    assert hasattr(window, 'btn_boosty')
+    assert hasattr(window, 'btn_show_crypto')
+    assert hasattr(window, 'btn_copy_usdt')
+    assert hasattr(window, 'btn_copy_trc')
+
+    # Quick copy buttons
+    window.btn_copy_usdt.click()
+    if cb:
+        assert cb.text() == "0xb9e67030ab0f38d1d88e4eaa605fb2acf0aa0ba3"
+    window.btn_copy_trc.click()
+    if cb:
+        assert cb.text() == "TQ4RwzWxs4kD6WXFgJkejRMSeAPsGUTv44"
+
+    # Crypto Wallets Dialog & Coin Selection across all 4 coins
+    crypto_dlg = CryptoDonationDialog(window)
+    assert crypto_dlg.cmb_coin.count() == 4
+    for c_idx in range(4):
+        crypto_dlg.cmb_coin.setCurrentIndex(c_idx)
+        app.processEvents()
+        coin_info = CRYPTO_WALLETS[c_idx]
+        assert crypto_dlg.txt_addr.text() == coin_info['address']
+        assert crypto_dlg.descLabel.text() != ""
+        assert crypto_dlg.lbl_qr.pixmap() is not None
+        assert not crypto_dlg.lbl_qr.pixmap().isNull()
+
+    # Test copy address inside dialog
+    crypto_dlg.btn_copy.click()
+    if cb:
+        assert cb.text() == CRYPTO_WALLETS[crypto_dlg.cmb_coin.currentIndex()]['address']
+    crypto_dlg.yesButton.click()
+
+    # Return to Home tab
+    window.switchTo(window.home_interface)
+    app.processEvents()
+
+    print("ALL interactive widgets, click handlers, and dialog flows verified successfully!")
     window.poll_timer.stop()
     window.close()
     app.processEvents()

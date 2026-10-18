@@ -30,7 +30,7 @@ from PyQt6.QtWidgets import (
 )
 from qfluentwidgets import (
     FluentWindow, NavigationItemPosition,
-    PrimaryPushButton, PushButton, ToolButton, TransparentToolButton,
+    PrimaryPushButton, PushButton, ToolButton, TransparentToolButton, TransparentPushButton,
     CardWidget, SimpleCardWidget, HeaderCardWidget,
     ProgressBar, InfoBar, InfoBarPosition,
     LineEdit, ComboBox, SwitchButton, TextEdit, CheckBox,
@@ -1512,6 +1512,7 @@ CRYPTO_WALLETS = [
         "symbol": "USDT",
         "address": "0xb9e67030ab0f38d1d88e4eaa605fb2acf0aa0ba3",
         "qr": "donate_usdt_bep20.png",
+        "notice_key": "dialog_crypto_notice_bep20",
         "notice": "Сеть: BNB Smart Chain (BEP20). Отправляйте только USDT в сети BSC."
     },
     {
@@ -1521,6 +1522,7 @@ CRYPTO_WALLETS = [
         "symbol": "USDT",
         "address": "TQ4RwzWxs4kD6WXFgJkejRMSeAPsGUTv44",
         "qr": "donate_usdt_trc20.png",
+        "notice_key": "dialog_crypto_notice_trc20",
         "notice": "Сеть: TRON (TRC20). Отправляйте только USDT в сети TRC20."
     },
     {
@@ -1530,6 +1532,7 @@ CRYPTO_WALLETS = [
         "symbol": "USDC",
         "address": "7SjWhmXyAQ2xVxB3BNuxHk1mQW8P5dg3aXVtr1eyT6qF",
         "qr": "donate_usdc_sol.png",
+        "notice_key": "dialog_crypto_notice_sol",
         "notice": "Сеть: Solana (SOL). Отправляйте только USDC в сети Solana."
     },
     {
@@ -1539,6 +1542,7 @@ CRYPTO_WALLETS = [
         "symbol": "LTC",
         "address": "LRBmSE6GuURdMJzTB971BAz4Z8Z9UXnPbF",
         "qr": "donate_ltc.png",
+        "notice_key": "dialog_crypto_notice_ltc",
         "notice": "Сеть: Litecoin (LTC). Отправляйте только монеты Litecoin (LTC)."
     }
 ]
@@ -1597,7 +1601,9 @@ class CryptoDonationDialog(MessageBoxBase):
 
         def update_coin(idx):
             coin = CRYPTO_WALLETS[idx]
-            self.descLabel.setText(coin["notice"])
+            notice_key = coin.get("notice_key", "")
+            notice_text = tr(notice_key) if notice_key and tr(notice_key) != notice_key else coin["notice"]
+            self.descLabel.setText(notice_text)
             self.txt_addr.setText(coin["address"])
             self.btn_copy.setText(tr("btn_copy_address"))
             base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -2168,9 +2174,19 @@ class MainWindow(FluentWindow):
         # 2. Discovered Games Header
         games_header = QHBoxLayout()
         games_header.setContentsMargins(4, 8, 4, 0)
+        games_header.setSpacing(8)
         self.lbl_games_title = SubtitleLabel(tr("games_title_scanning"), home_container)
-        games_header.addWidget(self.lbl_games_title)
-        games_header.addStretch(1)
+        self.lbl_games_title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        games_header.addWidget(self.lbl_games_title, 1)
+
+        self.btn_select_all = TransparentPushButton(tr("btn_select_all"), home_container, FIF.CHECKBOX)
+        self.btn_select_all.clicked.connect(self.select_all_games)
+        games_header.addWidget(self.btn_select_all)
+
+        self.btn_deselect_all = TransparentPushButton(tr("btn_deselect_all"), home_container, FIF.CLEAR_SELECTION)
+        self.btn_deselect_all.clicked.connect(self.deselect_all_games)
+        games_header.addWidget(self.btn_deselect_all)
+
         layout.addLayout(games_header)
 
         # Adaptive Grid for Games Cards (2 columns inside 1000px max-width container)
@@ -2812,6 +2828,10 @@ class MainWindow(FluentWindow):
             self.btn_boosty.setText(tr("btn_donate_boosty"))
         if hasattr(self, 'btn_show_crypto'):
             self.btn_show_crypto.setText(tr("btn_show_crypto_qr"))
+        if hasattr(self, 'btn_select_all'):
+            self.btn_select_all.setText(tr("btn_select_all"))
+        if hasattr(self, 'btn_deselect_all'):
+            self.btn_deselect_all.setText(tr("btn_deselect_all"))
 
         if getattr(self, 'lbl_metric_status', None):
             last_report = getattr(self, '_last_report', None)
@@ -2832,6 +2852,26 @@ class MainWindow(FluentWindow):
                     self.lbl_metric_art.setText(tr("metric_art", count=0))
 
         self.refresh_steam_status()
+        self.update_sync_button_text()
+
+    def select_all_games(self):
+        for card in self.games_container.findChildren(SimpleCardWidget):
+            chk = card.findChild(CheckBox)
+            if chk and not chk.isHidden():
+                chk.setChecked(True)
+        for g in getattr(self, '_current_games', []):
+            if not g.get('is_registered'):
+                g['selected'] = True
+        self.update_sync_button_text()
+
+    def deselect_all_games(self):
+        for card in self.games_container.findChildren(SimpleCardWidget):
+            chk = card.findChild(CheckBox)
+            if chk and not chk.isHidden():
+                chk.setChecked(False)
+        for g in getattr(self, '_current_games', []):
+            if not g.get('is_registered'):
+                g['selected'] = False
         self.update_sync_button_text()
 
     def update_sync_button_text(self):
