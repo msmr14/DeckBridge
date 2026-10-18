@@ -20,7 +20,8 @@
 | Package | Format | Target Platform | Link |
 | :--- | :--- | :--- | :--- |
 | **DeckBridge Portable** | `.zip` (Standalone) | Windows 10 & 11 (x64) | [DeckBridge-v1.0.0-Windows-x64.zip](https://github.com/msmr14/DeckBridge/releases/download/v1.0.0/DeckBridge-v1.0.0-Windows-x64.zip) |
-| **DeckBridge Installer** | `.msix` (Signed) | Windows 10 & 11 (x64) | [DeckBridge_1.0.0.0_x64_signed.msix](https://github.com/msmr14/DeckBridge/releases/download/v1.0.0/DeckBridge_1.0.0.0_x64_signed.msix) |
+| **Microsoft Store** | Store App | Windows 10 & 11 (x64) | *Coming soon to Microsoft Store* |
+
 
 ---
 
