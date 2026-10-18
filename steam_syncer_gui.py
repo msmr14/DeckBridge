@@ -1555,8 +1555,8 @@ class CryptoDonationDialog(MessageBoxBase):
     """
     def __init__(self, parent=None, default_coin_idx=0):
         super().__init__(parent=parent)
-        self.widget.setMinimumWidth(460)
-        self.widget.setMaximumWidth(500)
+        self.widget.setMinimumWidth(540)
+        self.widget.setMaximumWidth(580)
 
         self.titleLabel = SubtitleLabel(tr("dialog_crypto_title"), self.widget)
         self.viewLayout.addWidget(self.titleLabel)
@@ -1585,6 +1585,7 @@ class CryptoDonationDialog(MessageBoxBase):
         addr_row.setSpacing(8)
         self.txt_addr = LineEdit(self.widget)
         self.txt_addr.setReadOnly(True)
+        self.txt_addr.setStyleSheet("font-family: 'Consolas', 'Cascadia Code', 'Segoe UI Mono', monospace; font-size: 11.5px;")
         self.btn_copy = PushButton(tr("btn_copy_address"), self.widget, FIF.COPY)
 
         def on_copy():
@@ -1605,6 +1606,8 @@ class CryptoDonationDialog(MessageBoxBase):
             notice_text = tr(notice_key) if notice_key and tr(notice_key) != notice_key else coin["notice"]
             self.descLabel.setText(notice_text)
             self.txt_addr.setText(coin["address"])
+            self.txt_addr.setCursorPosition(0)
+            self.txt_addr.setToolTip(coin["address"])
             self.btn_copy.setText(tr("btn_copy_address"))
             base_dir = os.path.dirname(os.path.abspath(__file__))
             qr_path = os.path.join(base_dir, "Assets", coin["qr"])
@@ -2676,9 +2679,9 @@ class MainWindow(FluentWindow):
         about_title_col.addWidget(self.lbl_about_desc)
         about_header.addLayout(about_title_col, 1)
 
-        btn_github = PushButton("GitHub", self.about_card, FIF.GITHUB)
-        btn_github.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/msmr14/DeckBridge")))
-        about_header.addWidget(btn_github)
+        self.btn_github = PushButton("GitHub", self.about_card, FIF.GITHUB)
+        self.btn_github.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/msmr14/DeckBridge")))
+        about_header.addWidget(self.btn_github)
         about_layout.addLayout(about_header)
 
         layout.addWidget(self.about_card)
@@ -2875,6 +2878,10 @@ class MainWindow(FluentWindow):
         self.update_sync_button_text()
 
     def update_sync_button_text(self):
+        if getattr(self, 'worker', None) and self.worker.isRunning():
+            self.btn_sync.setEnabled(False)
+            return
+
         count = getattr(self, '_scanned_games_count', 0)
         new_count = getattr(self, '_new_games_count', -1)
 
@@ -2912,6 +2919,13 @@ class MainWindow(FluentWindow):
         else:
             if hasattr(self, 'lbl_games_title'):
                 self.lbl_games_title.setText(tr("games_title_scanning"))
+
+        if hasattr(self, 'btn_select_all'):
+            self.btn_select_all.setVisible(new_count > 0)
+            self.btn_select_all.setEnabled(new_count > 0)
+        if hasattr(self, 'btn_deselect_all'):
+            self.btn_deselect_all.setVisible(new_count > 0)
+            self.btn_deselect_all.setEnabled(new_count > 0)
 
     def on_auto_scan_toggled(self, checked: bool):
         self.config['auto_scan'] = checked
@@ -3417,6 +3431,9 @@ class MainWindow(FluentWindow):
 
         # 0. Smart Checkbox: visible only for new unregistered games
         chk_select = CheckBox(card)
+        sp = chk_select.sizePolicy()
+        sp.setRetainSizeWhenHidden(True)
+        chk_select.setSizePolicy(sp)
         is_reg = game_info.get('is_registered', False)
         if is_reg:
             chk_select.setChecked(False)
@@ -3653,11 +3670,11 @@ class MainWindow(FluentWindow):
             )
             return
 
+        self.clear_game_cards()
         self.btn_sync.setEnabled(False)
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
         self.btn_launch_steam.setVisible(False)
-        self.clear_game_cards()
         if hasattr(self, 'steam_dot') and self.steam_dot:
             self.steam_dot.set_pulsing(True)
 
@@ -3692,6 +3709,7 @@ class MainWindow(FluentWindow):
     def on_sync_finished(self, report: dict):
         if hasattr(self, 'steam_dot') and self.steam_dot:
             self.steam_dot.set_pulsing(False)
+        self.worker = None
         self.btn_sync.setEnabled(True)
         self.progress_bar.setVisible(False)
 
@@ -3699,8 +3717,9 @@ class MainWindow(FluentWindow):
         self._scanned_games_count = count
         self.update_sync_button_text()
 
+        is_success = bool(report.get('success', False))
         if getattr(self, 'lbl_metric_status', None):
-            if report['success']:
+            if is_success:
                 self.lbl_metric_status.setText(tr("metric_status_done"))
             else:
                 self.lbl_metric_status.setText(tr("metric_status_error"))
@@ -3709,7 +3728,7 @@ class MainWindow(FluentWindow):
             if getattr(self, 'lbl_metric_art', None):
                 self.lbl_metric_art.setText(tr("metric_art", count=report.get('art_downloaded', 0)))
 
-        if report['success']:
+        if is_success:
             added = report.get('games_added', 0)
             downloaded = report.get('art_downloaded', 0)
             if added == 0 and downloaded == 0:
@@ -3720,10 +3739,11 @@ class MainWindow(FluentWindow):
                     duration=5000
                 )
             else:
+                msg = report.get('message') or tr("info_sync_success_msg", added=added, downloaded=downloaded)
                 self.show_toast(
                     "success",
                     title=tr("info_sync_success_title"),
-                    content=report['message'],
+                    content=str(msg),
                     duration=5000
                 )
             self.refresh_steam_status()
@@ -3731,10 +3751,11 @@ class MainWindow(FluentWindow):
                 self.btn_launch_steam.setVisible(True)
             self.preview_scanned_games()
         else:
+            err_msg = report.get('message') or tr("info_sync_error_msg")
             self.show_toast(
                 "error",
                 title=tr("info_sync_error_title"),
-                content=report['message'],
+                content=str(err_msg),
                 duration=6000
             )
             self.refresh_steam_status()

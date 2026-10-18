@@ -8,11 +8,12 @@ import steam_syncer
 # Force headless offscreen platform for Qt testing
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 
+from unittest.mock import patch, MagicMock
 from PyQt6.QtCore import Qt, QPoint, QPointF, QEvent
 from PyQt6.QtGui import QColor, QPixmap, QMouseEvent
 from PyQt6.QtWidgets import QApplication, QSizePolicy
 from PyQt6.QtTest import QTest
-from qfluentwidgets import InfoBarPosition, CaptionLabel, CheckBox
+from qfluentwidgets import InfoBarPosition, CaptionLabel, CheckBox, TransparentToolButton, PushButton
 from steam_syncer_gui import (
     MainWindow, load_app_config, save_app_config, configure_high_dpi,
     DraggableSwitchButton, TiltPosterLabel, ensure_qfluentwidgets_alive,
@@ -554,6 +555,13 @@ def _do_test_gui():
     dlg_apply.yesButton.click()
     assert dlg_apply.get_selected_cover_path() == dummy_cover
 
+    # Test browse local in CoverSelectorDialog
+    app_icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app_icon.ico')
+    dlg_browse = CoverSelectorDialog("TestGame3", parent=window)
+    with patch('PyQt6.QtWidgets.QFileDialog.getOpenFileName', return_value=(app_icon_path, 'Images (*.png)')):
+        dlg_browse.btn_browse_local.click()
+        assert dlg_browse.get_selected_cover_path() == app_icon_path
+
     # 13. Test Selection Toggles ("Select All" / "Deselect All") on Home Tab
     if hasattr(window, 'scan_worker') and window.scan_worker:
         try:
@@ -604,19 +612,68 @@ def _do_test_gui():
             assert chk.isChecked() is True
     assert window.btn_sync.isEnabled() is True
 
-    # 14. Test Interactive Home Buttons & Steam Status Dot Click
-    assert hasattr(window, 'btn_sync')
-    assert hasattr(window, 'btn_close_steam')
-    assert hasattr(window, 'btn_launch_steam')
-    assert hasattr(window, 'btn_browse_hero')
+    # 13b. Interactive Game Card widgets (Poster Click, Folder Open Button)
+    first_card_widget = window.games_layout.itemAtPosition(0, 0).widget()
+    card_open_btn = first_card_widget.findChild(TransparentToolButton)
+    if card_open_btn:
+        with patch('subprocess.Popen') as mock_open:
+            card_open_btn.click()
+            assert mock_open.called or hasattr(os, 'startfile')
 
-    # Test Steam status dot click callback
+    posters = [l for l in first_card_widget.findChildren(CaptionLabel) if isinstance(l, TiltPosterLabel)]
+    if posters:
+        with patch.object(CoverSelectorDialog, 'exec', return_value=0):
+            posters[0].clicked.emit()
+
+    # 14. Test Interactive Home Buttons & Steam Status Dot Click
+    # 14a. Test Steam status dot click callback
     dot_clicked = []
     window.steam_dot.clicked_callback = lambda: dot_clicked.append(True)
     ev_press = QMouseEvent(QEvent.Type.MouseButtonPress, QPointF(16, 16), QPointF(16, 16), Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
     window.steam_dot.mousePressEvent(ev_press)
     assert len(dot_clicked) == 1
     window.steam_dot.clicked_callback = window.refresh_steam_status
+
+    # 14b. Interactive click of btn_sync
+    with patch('steam_syncer.is_steam_running', return_value=False), \
+         patch('steam_syncer_gui.SyncWorker') as mock_sync_worker_cls:
+        mock_worker = MagicMock()
+        mock_worker.isRunning.return_value = True
+        mock_sync_worker_cls.return_value = mock_worker
+        window.btn_sync.setEnabled(True)
+        window.btn_sync.click()
+        assert mock_worker.start.called
+        assert window.btn_sync.isEnabled() is False
+        assert window.progress_bar.isVisible() is True
+        mock_worker.isRunning.return_value = False
+        window.on_sync_finished({'success': True, 'games_added': 1, 'art_downloaded': 0, 'games_found': []})
+        assert window.btn_sync.isEnabled() is True
+
+    # 14c. Interactive click of btn_close_steam
+    with patch('steam_syncer_gui.CloseSteamWorker') as mock_close_worker_cls:
+        mock_close = MagicMock()
+        mock_close_worker_cls.return_value = mock_close
+        window.btn_close_steam.setEnabled(True)
+        window.btn_close_steam.click()
+        assert mock_close.start.called
+        assert window.btn_close_steam.isEnabled() is False
+        window.on_steam_closed_result(True)
+        assert window.btn_close_steam.isEnabled() is True
+
+    # 14d. Interactive click of btn_launch_steam
+    with tempfile.TemporaryDirectory() as tmp_steam_dir:
+        fake_exe = os.path.join(tmp_steam_dir, "steam.exe")
+        with open(fake_exe, "w") as f:
+            f.write("mock")
+        window.txt_steam_path.setText(tmp_steam_dir)
+        with patch('subprocess.Popen') as mock_popen:
+            window.btn_launch_steam.click()
+            assert mock_popen.called
+
+    # 14e. Interactive click of btn_browse_hero
+    with patch('PyQt6.QtWidgets.QFileDialog.getExistingDirectory', return_value=r"C:\CustomSteamHeroPath"):
+        window.btn_browse_hero.click()
+        assert window.txt_steam_path.text() == os.path.normpath(r"C:\CustomSteamHeroPath")
 
     # 15. Test Navigation and TitleBar Header Buttons
     # Click Settings header button
@@ -670,6 +727,18 @@ def _do_test_gui():
     app.processEvents()
     assert len(window.game_folders) >= 2
 
+    # Interactive Folder Add via btn_add_folder
+    with patch('PyQt6.QtWidgets.QFileDialog.getExistingDirectory', return_value=r"C:\AddedFolderTest"):
+        window.btn_add_folder.click()
+        assert r"C:\AddedFolderTest" in window.game_folders
+        if r"C:\AddedFolderTest" in window.game_folders:
+            window.game_folders.remove(r"C:\AddedFolderTest")
+
+    # Interactive Steam Path Picker via btn_browse_steam
+    with patch('PyQt6.QtWidgets.QFileDialog.getExistingDirectory', return_value=r"C:\MockSteamBrowse"):
+        window.btn_browse_steam.click()
+        assert window.txt_steam_path.text() == os.path.normpath(r"C:\MockSteamBrowse")
+
     # Steam Path Picker and User Selector
     window.txt_steam_path.setText(r"C:\MockSteamFolder_AutoTest")
     window.persist_settings()
@@ -717,6 +786,26 @@ def _do_test_gui():
     assert hasattr(window, 'btn_copy_usdt')
     assert hasattr(window, 'btn_copy_trc')
 
+    # Interactive button clicks for tribute, boosty, and github links
+    with patch('PyQt6.QtGui.QDesktopServices.openUrl') as mock_url:
+        window.btn_tribute.click()
+        assert mock_url.called
+        assert "tribute.tg" in mock_url.call_args[0][0].toString()
+
+    with patch('PyQt6.QtGui.QDesktopServices.openUrl') as mock_url:
+        window.btn_boosty.click()
+        assert mock_url.called
+        assert "boosty.to" in mock_url.call_args[0][0].toString()
+
+    if hasattr(window, 'btn_github'):
+        with patch('PyQt6.QtGui.QDesktopServices.openUrl') as mock_url:
+            window.btn_github.click()
+            assert mock_url.called
+            assert "DeckBridge" in mock_url.call_args[0][0].toString()
+
+    with patch.object(CryptoDonationDialog, 'exec', return_value=0):
+        window.btn_show_crypto.click()
+
     # Quick copy buttons
     window.btn_copy_usdt.click()
     if cb:
@@ -733,6 +822,7 @@ def _do_test_gui():
         app.processEvents()
         coin_info = CRYPTO_WALLETS[c_idx]
         assert crypto_dlg.txt_addr.text() == coin_info['address']
+        assert crypto_dlg.txt_addr.cursorPosition() == 0
         assert crypto_dlg.descLabel.text() != ""
         assert crypto_dlg.lbl_qr.pixmap() is not None
         assert not crypto_dlg.lbl_qr.pixmap().isNull()
@@ -742,6 +832,13 @@ def _do_test_gui():
     if cb:
         assert cb.text() == CRYPTO_WALLETS[crypto_dlg.cmb_coin.currentIndex()]['address']
     crypto_dlg.yesButton.click()
+
+    # 18. Test Window Controls (Minimize, Maximize, Close buttons)
+    assert hasattr(window.titleBar, 'minBtn')
+    assert hasattr(window.titleBar, 'maxBtn')
+    assert hasattr(window.titleBar, 'closeBtn')
+    assert window.titleBar.minBtn.height() > 0
+    assert window.titleBar.closeBtn.height() > 0
 
     # Return to Home tab
     window.switchTo(window.home_interface)

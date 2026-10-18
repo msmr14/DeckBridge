@@ -46,9 +46,12 @@ msix_prep/
 
 # Temporary test captures and debug screenshots
 test_grab*.png
+test_*.png
 crop_*.png
 captured_window.png
 current_window.png
+*.bak
+*.tmp
 
 # IDE & OS files
 .vscode/

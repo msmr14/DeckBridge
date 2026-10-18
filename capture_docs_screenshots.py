@@ -32,7 +32,7 @@ def capture_all():
     setTheme(Theme.DARK)
 
     win = MainWindow()
-    win.resize(920, 680)
+    win.resize(940, 780)
 
     # Disconnect background threads
     if hasattr(win, 'scan_worker') and win.scan_worker:
@@ -114,10 +114,9 @@ def capture_all():
     win._current_games = sample_games
     win._scanned_games_count = len(sample_games)
     win._new_games_count = 2
-    win.lbl_games_title.setText('Discovered games (4)')
+    win.update_sync_button_text()
     win.btn_select_all.setText('Select All')
     win.btn_deselect_all.setText('Deselect All')
-    win.btn_sync.setText('Sync to Steam (2 new)')
 
     win.show()
     for _ in range(10):
