@@ -32,7 +32,9 @@ logger = logging.getLogger("SteamLifecycle")
 STEAM_PROCESS_NAMES = {
     'steam.exe',
     'steamwebhelper.exe',
-    'steamservice.exe'
+    'steamservice.exe',
+    'steam',
+    'steamwebhelper'
 }
 
 # Win32 Process creation flags for detaching from parent Job Object
@@ -45,6 +47,31 @@ CREATE_BREAKAWAY_FROM_JOB = 0x01000000
 def get_running_steam_processes() -> List[str]:
     """Returns list of running Steam processes."""
     found = []
+    if sys.platform != "win32":
+        try:
+            if os.path.isdir('/proc'):
+                for pid in os.listdir('/proc'):
+                    if pid.isdigit():
+                        try:
+                            comm_file = os.path.join('/proc', pid, 'comm')
+                            if os.path.isfile(comm_file):
+                                with open(comm_file, 'r', encoding='utf-8', errors='ignore') as f:
+                                    comm = f.read().strip().lower()
+                                    if comm in ('steam', 'steamwebhelper'):
+                                        found.append(comm)
+                        except (IOError, OSError):
+                            continue
+        except Exception:
+            pass
+        if not found:
+            try:
+                res = subprocess.run(['pgrep', '-x', 'steam'], capture_output=True, text=True, timeout=2, check=False)
+                if res.returncode == 0 and res.stdout.strip():
+                    found.append('steam')
+            except Exception:
+                pass
+        return found
+
     try:
         k32 = ctypes.windll.kernel32
         TH32CS_SNAPPROCESS = 0x00000002
@@ -110,16 +137,45 @@ def get_running_steam_processes() -> List[str]:
 
 
 def is_steam_fully_closed() -> bool:
-    """Returns True if none of steam.exe, steamwebhelper.exe, or steamservice.exe are running."""
+    """Returns True if none of steam.exe, steamwebhelper.exe, or steam are running."""
     procs = get_running_steam_processes()
-    # At minimum, steam.exe and steamwebhelper.exe must be completely gone
-    critical = [p for p in procs if p in ('steam.exe', 'steamwebhelper.exe')]
+    if sys.platform == "win32":
+        critical = [p for p in procs if p in ('steam.exe', 'steamwebhelper.exe')]
+    else:
+        critical = [p for p in procs if p in ('steam', 'steamwebhelper')]
     return len(critical) == 0
 
 
 def get_running_steam_pids() -> set:
     """Returns set of process IDs for running Steam processes."""
     pids = set()
+    if sys.platform != "win32":
+        try:
+            if os.path.isdir('/proc'):
+                for pid in os.listdir('/proc'):
+                    if pid.isdigit():
+                        try:
+                            comm_file = os.path.join('/proc', pid, 'comm')
+                            if os.path.isfile(comm_file):
+                                with open(comm_file, 'r', encoding='utf-8', errors='ignore') as f:
+                                    comm = f.read().strip().lower()
+                                    if comm in ('steam', 'steamwebhelper'):
+                                        pids.add(int(pid))
+                        except (IOError, OSError):
+                            continue
+        except Exception:
+            pass
+        if not pids:
+            try:
+                res = subprocess.run(['pgrep', '-x', 'steam'], capture_output=True, text=True, timeout=2, check=False)
+                if res.returncode == 0 and res.stdout:
+                    for line in res.stdout.splitlines():
+                        if line.strip().isdigit():
+                            pids.add(int(line.strip()))
+            except Exception:
+                pass
+        return pids
+
     try:
         k32 = ctypes.windll.kernel32
         TH32CS_SNAPPROCESS = 0x00000002
@@ -167,12 +223,29 @@ def get_running_steam_pids() -> set:
 def is_big_picture_mode_running() -> bool:
     """
     Detects whether Steam Big Picture / GamepadUI is currently open.
-    Checks top-level Windows for Steam Big Picture window class and confirms
-    the window actually belongs to a running Steam process (prevents false positives
-    from arbitrary third-party SDL2/SDL3 games using class 'SDL_app').
+    On Linux / SteamOS: inspects /proc cmdlines for -gamepadui or -tenfoot.
+    On Windows: checks top-level Windows for Steam Big Picture window class and confirms PID.
     """
     if sys.platform != "win32":
+        try:
+            if os.path.isdir('/proc'):
+                for pid in os.listdir('/proc'):
+                    if pid.isdigit():
+                        try:
+                            cmd_file = os.path.join('/proc', pid, 'cmdline')
+                            if os.path.isfile(cmd_file):
+                                with open(cmd_file, 'rb') as f:
+                                    cmd = f.read().decode('utf-8', errors='ignore').lower()
+                                    if 'steam' in cmd and ('-gamepadui' in cmd or '-tenfoot' in cmd):
+                                        return True
+                        except (IOError, OSError):
+                            continue
+        except Exception:
+            pass
+        if os.environ.get("SteamDeck") == "1":
+            return True
         return False
+
     try:
         steam_pids = get_running_steam_pids()
         if not steam_pids:
@@ -195,9 +268,31 @@ def is_big_picture_mode_running() -> bool:
 def request_steam_shutdown(steam_path: str) -> bool:
     """
     Initiates graceful shutdown of Steam client without force-killing.
-    Uses 'steam.exe -shutdown' or graceful taskkill (WM_CLOSE).
+    Uses 'steam -shutdown' or graceful taskkill / SIGTERM.
     Eliminates blind os.startfile calls.
     """
+    if sys.platform != "win32":
+        shutdown_cmds = []
+        if steam_path and os.path.isfile(os.path.join(steam_path, "steam.sh")):
+            shutdown_cmds.append([os.path.join(steam_path, "steam.sh"), "-shutdown"])
+        if shutil.which("steam"):
+            shutdown_cmds.append(["steam", "-shutdown"])
+        if shutil.which("flatpak"):
+            shutdown_cmds.append(["flatpak", "run", "com.valvesoftware.Steam", "-shutdown"])
+
+        for cmd in shutdown_cmds:
+            try:
+                subprocess.run(cmd, capture_output=True, timeout=4, check=False)
+                return True
+            except Exception:
+                continue
+
+        try:
+            subprocess.run(['pkill', '-TERM', '-x', 'steam'], capture_output=True, timeout=3, check=False)
+            return True
+        except Exception:
+            return False
+
     steam_exe = os.path.join(steam_path, "steam.exe")
     if os.path.isfile(steam_exe):
         try:
@@ -244,9 +339,33 @@ def wait_for_steam_shutdown(timeout_sec: float = 15.0, poll_interval: float = 0.
 def resurrect_steam(steam_path: str, big_picture: bool = False) -> bool:
     """
     Relaunches the Steam client detached from current process tree.
-    Attempts Job Object breakaway and falls back gracefully if breakaway is restricted.
+    Supports Linux native Steam, Flatpak Steam, and Windows Job Object breakaway.
     If big_picture is True, launches with -gamepadui (modern Big Picture Mode).
     """
+    if sys.platform != "win32":
+        args = []
+        if steam_path and 'com.valvesoftware.Steam' in steam_path:
+            args = ['flatpak', 'run', 'com.valvesoftware.Steam']
+        elif steam_path and os.path.isfile(os.path.join(steam_path, 'steam.sh')):
+            args = [os.path.join(steam_path, 'steam.sh')]
+        elif shutil.which('steam'):
+            args = ['steam']
+        elif steam_path and os.path.isfile(os.path.join(steam_path, 'steam')):
+            args = [os.path.join(steam_path, 'steam')]
+        else:
+            args = ['steam']
+
+        if big_picture:
+            args.append('-gamepadui')
+
+        try:
+            subprocess.Popen(args, start_new_session=True)
+            logger.info(f"Successfully resurrected Steam on Linux (Big Picture: {big_picture})")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to resurrect Steam on Linux: {e}")
+            return False
+
     steam_exe = os.path.join(steam_path, "steam.exe")
     if not os.path.isfile(steam_exe):
         logger.error(f"Cannot resurrect Steam: {steam_exe} not found")
@@ -301,7 +420,7 @@ def get_active_steam_user(steam_path: Optional[str] = None) -> Optional[str]:
 def safe_close_steam(steam_path: Optional[str] = None, timeout_sec: float = 5.0) -> bool:
     """
     Safely and cleanly shuts down the Steam client:
-    1. Executes official 'steam.exe -shutdown'.
+    1. Executes official 'steam -shutdown'.
     2. Waits up to timeout_sec (default 5 seconds) for graceful termination.
     3. If Steam processes do not exit within timeout, performs forced kill fallback.
     Returns True if Steam processes were cleanly terminated, False otherwise.
@@ -317,6 +436,15 @@ def safe_close_steam(steam_path: Optional[str] = None, timeout_sec: float = 5.0)
         return True
 
     logger.warning("Steam graceful shutdown timed out; executing forced termination fallback...")
+    if sys.platform != "win32":
+        try:
+            subprocess.run(['pkill', '-9', '-x', 'steam'], capture_output=True, timeout=2, check=False)
+            subprocess.run(['pkill', '-9', '-x', 'steamwebhelper'], capture_output=True, timeout=2, check=False)
+            time.sleep(0.3)
+        except Exception as e:
+            logger.debug(f"Forced Linux termination error: {e}")
+        return is_steam_fully_closed()
+
     try:
         for proc in STEAM_PROCESS_NAMES:
             subprocess.run(
@@ -691,7 +819,7 @@ def spawn_detached_worker(cmd_args: List[str]) -> bool:
             logger.warning(f"Win32 breakaway failed: {e}")
     else:
         try:
-            subprocess.Popen(cmd_args)
+            subprocess.Popen(cmd_args, start_new_session=True)
             return True
         except Exception as e:
             logger.warning(f"Worker launch failed: {e}")

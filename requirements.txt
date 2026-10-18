@@ -1,7 +1,7 @@
 PyQt6>=6.6.0
 PyQt6-Fluent-Widgets>=1.6.0
 PyQt6-Frameless-Window>=0.4.0
-pywin32>=306
+pywin32>=306; sys_platform == 'win32'
 vdf>=3.4
 requests>=2.31.0
 Pillow>=10.0.0

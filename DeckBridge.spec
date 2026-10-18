@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('app_icon.ico', '.'), ('DeckBridge.ico', '.'), ('DeckBridge_logo.png', '.'), ('i18n.py', '.'), ('Assets', 'Assets')]
+datas = [('app_icon.ico', '.'), ('DeckBridge.ico', '.'), ('DeckBridge_logo.png', '.'), ('deckbridge.png', '.'), ('deckbridge.desktop', '.'), ('i18n.py', '.'), ('Assets', 'Assets')]
 binaries = []
 hiddenimports = [
     'steam_syncer', 'steam_lifecycle', 'i18n', 'steam_vdf', 'artwork_scraper',
@@ -28,6 +28,12 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
+import sys
+import os
+
+version_res = 'version_info.txt' if sys.platform == 'win32' and os.path.isfile('version_info.txt') else None
+icon_file = 'DeckBridge.ico' if os.path.isfile('DeckBridge.ico') else None
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -44,8 +50,8 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='DeckBridge.ico',
-    version='version_info.txt',
+    icon=icon_file,
+    version=version_res,
 )
 coll = COLLECT(
     exe,

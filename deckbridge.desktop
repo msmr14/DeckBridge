@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=DeckBridge
+Comment=Non-Steam Game Importer & Artwork Sync for Steam & Steam Deck
+Exec=DeckBridge
+Icon=deckbridge
+Terminal=false
+Type=Application
+Categories=Game;Utility;
+StartupWMClass=DeckBridge
+Keywords=Steam;Deck;Sync;Artwork;Games;

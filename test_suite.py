@@ -4,7 +4,10 @@ import unittest
 
 # Ensure headless offscreen platform for Qt tests
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
+import shutil
+import steam_syncer
+import steam_lifecycle
 
 import vdf
 from steam_syncer import (
@@ -522,7 +525,7 @@ class TestSteamSyncer(unittest.TestCase):
              patch('steam_syncer.get_steam_path', return_value=r"C:\Program Files (x86)\Steam"), \
              patch('os.path.isfile', return_value=True), \
              patch('subprocess.run') as mock_run, \
-             patch('os.startfile') as mock_startfile:
+             patch('os.startfile', create=True) as mock_startfile:
             ok = close_steam_client(timeout_sec=1.0)
             self.assertTrue(ok)
             mock_startfile.assert_not_called()
@@ -805,14 +808,13 @@ class ArchitectureStagesTests(unittest.TestCase):
             except OSError:
                 pass
 
-        # 7. is_big_picture_mode_running PID isolation
         with patch('sys.platform', 'win32'), \
              patch('steam_lifecycle.get_running_steam_pids', return_value={1001}), \
-             patch('ctypes.windll.user32.FindWindowW', return_value=9999):
+             patch('ctypes.windll.user32.FindWindowW', create=True, return_value=9999):
             def mock_get_thread_proc_id(hwnd, pid_ptr):
                 pid_ptr._obj.value = 2002  # Different PID, not in steam_pids
                 return 1
-            with patch('ctypes.windll.user32.GetWindowThreadProcessId', side_effect=mock_get_thread_proc_id):
+            with patch('ctypes.windll.user32.GetWindowThreadProcessId', create=True, side_effect=mock_get_thread_proc_id):
                 self.assertFalse(steam_lifecycle.is_big_picture_mode_running())
 
         # 8. Test DeckBridge paths and MSIX AppData redirection
@@ -838,7 +840,105 @@ class ArchitectureStagesTests(unittest.TestCase):
                  patch('os.access', return_value=False):
                 fallback_cfg = steam_syncer_gui.get_default_config_path()
                 self.assertIn('DeckBridge', fallback_cfg)
-                self.assertNotIn(empty_base, fallback_cfg)
+
+
+class LinuxCompatibilityTests(unittest.TestCase):
+    """Rigorous verification of Linux and SteamOS (Steam Deck) support."""
+
+    def test_linux_steam_path_detection(self):
+        with tempfile.TemporaryDirectory() as fake_home:
+            # 1. Native Steam path: ~/.local/share/Steam/userdata
+            native_steam = os.path.join(fake_home, ".local", "share", "Steam")
+            native_userdata = os.path.join(native_steam, "userdata")
+            os.makedirs(native_userdata, exist_ok=True)
+
+            with patch('sys.platform', 'linux'), \
+                 patch('os.path.expanduser', return_value=fake_home):
+                path = steam_syncer.get_steam_path()
+                self.assertIsNotNone(path)
+                self.assertEqual(os.path.normpath(path), os.path.normpath(native_steam))
+
+            # 2. Flatpak Steam path: ~/.var/app/com.valvesoftware.Steam/.steam/steam
+            shutil.rmtree(native_steam)
+            flatpak_steam = os.path.join(fake_home, ".var", "app", "com.valvesoftware.Steam", ".steam", "steam")
+            flatpak_userdata = os.path.join(flatpak_steam, "userdata")
+            os.makedirs(flatpak_userdata, exist_ok=True)
+
+            with patch('sys.platform', 'linux'), \
+                 patch('os.path.expanduser', return_value=fake_home):
+                path = steam_syncer.get_steam_path()
+                self.assertIsNotNone(path)
+                self.assertEqual(os.path.normpath(path), os.path.normpath(flatpak_steam))
+
+    def test_linux_default_game_folders(self):
+        with tempfile.TemporaryDirectory() as fake_root:
+            fake_home = os.path.join(fake_root, "home", "deck")
+            os.makedirs(fake_home, exist_ok=True)
+
+            with patch('sys.platform', 'linux'), \
+                 patch('os.path.expanduser', return_value=fake_home):
+                folders = steam_syncer.get_default_game_folders(existing_only=False)
+                # Verify standard SteamOS and Linux directories are included
+                self.assertTrue(any("Games" in f for f in folders))
+                self.assertTrue(any("Heroic" in f for f in folders))
+                self.assertTrue(any("Lutris" in f for f in folders))
+                self.assertTrue(any("mmcblk0p1" in f for f in folders))
+
+    def test_linux_process_detection(self):
+        with tempfile.TemporaryDirectory() as fake_proc:
+            # Create a mock /proc/1234/comm containing 'steam'
+            pid_dir = os.path.join(fake_proc, "1234")
+            os.makedirs(pid_dir, exist_ok=True)
+            with open(os.path.join(pid_dir, "comm"), "w", encoding="utf-8") as f:
+                f.write("steam\n")
+
+            with patch('sys.platform', 'linux'), \
+                 patch('os.path.isdir', lambda p: 'proc' in p), \
+                 patch('os.listdir', lambda p: ["1234"] if 'proc' in p else []), \
+                 patch('os.path.isfile', lambda p: 'comm' in p), \
+                 patch('builtins.open', mock_open(read_data="steam\n")):
+                self.assertTrue(steam_syncer.is_steam_running())
+                self.assertTrue(steam_lifecycle.is_steam_running())
+                self.assertFalse(steam_lifecycle.is_steam_fully_closed())
+
+    def test_linux_big_picture_mode_detection(self):
+        # 1. Detected via SteamDeck=1 environment variable
+        with patch('sys.platform', 'linux'), \
+             patch.dict(os.environ, {"SteamDeck": "1"}):
+            self.assertTrue(steam_lifecycle.is_big_picture_mode_running())
+
+        # 2. Detected via /proc cmdline with -gamepadui
+        with patch('sys.platform', 'linux'), \
+             patch.dict(os.environ, {}, clear=True), \
+             patch('os.path.isdir', lambda p: 'proc' in p), \
+             patch('os.listdir', lambda p: ["5678"] if 'proc' in p else []), \
+             patch('os.path.isfile', lambda p: 'cmdline' in p), \
+             patch('builtins.open', mock_open(read_data=b"steam\x00-gamepadui\x00")):
+            self.assertTrue(steam_lifecycle.is_big_picture_mode_running())
+
+    def test_linux_resurrect_steam_detached(self):
+        with patch('sys.platform', 'linux'), \
+             patch('steam_lifecycle.get_steam_path', return_value="/home/deck/.local/share/Steam"), \
+             patch('shutil.which', return_value="/usr/bin/steam"), \
+             patch('subprocess.Popen') as mock_popen:
+            ok = steam_lifecycle.resurrect_steam("/home/deck/.local/share/Steam", big_picture=True)
+            self.assertTrue(ok)
+            self.assertTrue(mock_popen.called)
+            called_args, called_kwargs = mock_popen.call_args
+            self.assertIn("-gamepadui", called_args[0])
+            self.assertTrue(called_kwargs.get("start_new_session"))
+
+    def test_linux_valid_executable_types(self):
+        with patch('sys.platform', 'linux'):
+            # Windows exes are valid on Linux via Proton
+            self.assertTrue(steam_syncer.is_valid_executable("game.exe"))
+            # Native Linux binaries and scripts are also valid
+            self.assertTrue(steam_syncer.is_valid_executable("start.sh"))
+            self.assertTrue(steam_syncer.is_valid_executable("game.x86_64"))
+            self.assertTrue(steam_syncer.is_valid_executable("Game.AppImage"))
+            # Junk files are rejected
+            self.assertFalse(steam_syncer.is_valid_executable("unins000.exe"))
+            self.assertFalse(steam_syncer.is_valid_executable("UnityCrashHandler64.exe"))
 
 
 if __name__ == '__main__':

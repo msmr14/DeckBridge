@@ -24,10 +24,12 @@
 
 | Пакет | Формат | Платформа | Ссылка |
 | :--- | :--- | :--- | :--- |
-| **DeckBridge Portable** | `.zip` (Портативная версия) | Windows 10 и 11 (x64) | [DeckBridge-v1.0.0-Windows-x64.zip](https://github.com/msmr14/DeckBridge/releases/download/v1.0.0/DeckBridge-v1.0.0-Windows-x64.zip) |
+| **DeckBridge Linux AppImage** | `.AppImage` (Один файл) | SteamOS (Steam Deck) и Linux (x64) | [**DeckBridge-x86_64.AppImage**](https://github.com/msmr14/DeckBridge/releases/latest) |
+| **DeckBridge Linux Tarball** | `.tar.gz` (Архив с папкой) | SteamOS и Linux (x64) | [**DeckBridge-Linux-x64.tar.gz**](https://github.com/msmr14/DeckBridge/releases/latest) |
+| **DeckBridge Windows Portable** | `.zip` (Портативная версия) | Windows 10 и 11 (x64) | [DeckBridge-v1.0.0-Windows-x64.zip](https://github.com/msmr14/DeckBridge/releases/download/v1.0.0/DeckBridge-v1.0.0-Windows-x64.zip) |
 | **Microsoft Store** | Приложение Store | Windows 10 и 11 (x64) | *Скоро в Microsoft Store* |
 
-> 💡 **Быстрый старт:** Скачайте `DeckBridge-v1.0.0-Windows-x64.zip`, распакуйте в любую папку и запустите `DeckBridge.exe`. Установка не требуется!
+> 💡 **Быстрый старт на Steam Deck:** Скачайте `DeckBridge-x86_64.AppImage` в режиме рабочего стола (Desktop Mode), разрешите запуск (`chmod +x DeckBridge-x86_64.AppImage`) и запустите двойным кликом! Также вы можете добавить AppImage в Steam как стороннюю игру и запускать прямо из игрового режима (Game Mode). DeckBridge работает 100% нативно без Proton или Wine!
 
 ---
 

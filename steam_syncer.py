@@ -138,7 +138,7 @@ class DiscoveredGame(dict):
 
 
 def get_available_drives() -> List[str]:
-    """Returns all active mounted Windows drive roots (e.g. ['C:', 'D:'])."""
+    """Returns all active mounted Windows drive roots (e.g. ['C:', 'D:']) or Linux mount roots."""
     drives = []
     if sys.platform == 'win32':
         import string
@@ -148,14 +148,35 @@ def get_available_drives() -> List[str]:
                 drives.append(f"{letter}:")
     else:
         drives.append("/")
-    return drives
+        # Scan for Steam Deck microSD and removable media mount points
+        for media_base in ['/run/media', '/media']:
+            if os.path.isdir(media_base):
+                try:
+                    for entry in os.listdir(media_base):
+                        entry_path = os.path.join(media_base, entry)
+                        if os.path.isdir(entry_path):
+                            drives.append(entry_path)
+                            # Submounts like /run/media/deck/*
+                            try:
+                                for sub in os.listdir(entry_path):
+                                    sub_path = os.path.join(entry_path, sub)
+                                    if os.path.isdir(sub_path):
+                                        drives.append(sub_path)
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+        if os.path.isdir('/run/media/mmcblk0p1') and '/run/media/mmcblk0p1' not in drives:
+            drives.append('/run/media/mmcblk0p1')
+    return list(dict.fromkeys(drives))
 
 
 def get_default_game_folders(existing_only: bool = True) -> List[str]:
     """
     Returns default game folders across all major launchers and standalone locations:
-    - Standalone (Games, Gamess, Игры, Torrent Games, etc. across all drives)
-    - Epic Games (Program Files, multi-drive, Manifests *.item)
+    - Standalone (Games, Gamess, Игры, Torrent Games, etc. across all drives / Linux mounts)
+    - SteamOS & Linux Native (MicroSD /run/media/mmcblk0p1, /run/media/deck/*, ~/Games, Heroic, Lutris)
+    - Epic Games (Program Files, multi-drive, Manifests *.item, Heroic Linux configs)
     - GOG Galaxy / GOG Games (GOG Games, Program Files, Registry)
     - Origin / EA App (Program Files, multi-drive, Registry)
     - Ubisoft Connect (Ubisoft Game Launcher/games, multi-drive, Registry)
@@ -166,55 +187,113 @@ def get_default_game_folders(existing_only: bool = True) -> List[str]:
     candidates: List[str] = []
     drives = get_available_drives()
 
-    # 1. Multi-drive Standalone & Launcher Roots
-    for d in drives:
+    # Linux / SteamOS paths
+    if sys.platform != 'win32':
+        home = os.path.expanduser("~")
         candidates.extend([
-            f"{d}\\Gamess",
-            f"{d}\\Games",
-            f"{d}\\Игры",
-            f"{d}\\Torrent Games",
-            f"{d}\\PC Games",
-            f"{d}\\Repack Games",
-            f"{d}\\Portable Games",
-            f"{d}\\Standalone Games",
-            f"{d}\\Epic Games",
-            f"{d}\\EpicGames",
-            f"{d}\\GOG Games",
-            f"{d}\\GOG Galaxy\\Games",
-            f"{d}\\EA Games",
-            f"{d}\\Origin Games",
-            f"{d}\\Electronic Arts",
-            f"{d}\\Ubisoft Games",
-            f"{d}\\Ubisoft\\games",
-            f"{d}\\Ubisoft",
-            f"{d}\\Amazon Games",
-            f"{d}\\Amazon Games\\Library",
-            f"{d}\\itch\\apps",
-            f"{d}\\itch",
-            f"{d}\\Itch Games",
-            f"{d}\\Playnite\\Games",
-            f"{d}\\Playnite",
+            os.path.join(home, "Games"),
+            os.path.join(home, "Games", "Heroic"),
+            os.path.join(home, "Games", "Lutris"),
+            os.path.join(home, "Games", "GOG Games"),
+            os.path.join(home, "Games", "Epic Games"),
+            os.path.join(home, ".var", "app", "com.heroicgameslauncher.hgl", "config", "heroic", "Games"),
+            os.path.join(home, ".local", "share", "bottles", "bottles"),
+            os.path.join(home, ".wine", "drive_c", "Games"),
+            "/run/media/mmcblk0p1",
+            "/run/media/mmcblk0p1/Games",
+            "/run/media/mmcblk0p1/games",
         ])
+        for d in drives:
+            if d != "/":
+                candidates.extend([
+                    d,
+                    os.path.join(d, "Games"),
+                    os.path.join(d, "games"),
+                    os.path.join(d, "Heroic"),
+                    os.path.join(d, "Lutris"),
+                ])
 
-    # 2. System and User-Profile Launcher Platform Defaults
-    candidates.extend([
-        os.path.expandvars(r"%ProgramFiles%\Epic Games"),
-        os.path.expandvars(r"%ProgramFiles(x86)%\Epic Games"),
-        os.path.expandvars(r"%ProgramFiles(x86)%\GOG Galaxy\Games"),
-        os.path.expandvars(r"%ProgramFiles%\GOG Galaxy\Games"),
-        os.path.expandvars(r"%ProgramFiles%\EA Games"),
-        os.path.expandvars(r"%ProgramFiles(x86)%\Origin Games"),
-        os.path.expandvars(r"%ProgramFiles(x86)%\Electronic Arts"),
-        os.path.expandvars(r"%ProgramFiles%\Electronic Arts"),
-        os.path.expandvars(r"%ProgramFiles(x86)%\Ubisoft\Ubisoft Game Launcher\games"),
-        os.path.expandvars(r"%ProgramFiles%\Ubisoft\Ubisoft Game Launcher\games"),
-        os.path.expandvars(r"%LOCALAPPDATA%\Amazon Games\Library"),
-        os.path.expandvars(r"%LOCALAPPDATA%\Amazon Games"),
-        os.path.expandvars(r"%APPDATA%\itch\apps"),
-        os.path.expandvars(r"%LOCALAPPDATA%\itch\apps"),
-        os.path.expandvars(r"%APPDATA%\Playnite\Games"),
-        os.path.expandvars(r"%LOCALAPPDATA%\Playnite\Games"),
-    ])
+        # Inspect Heroic Games Launcher configs on Linux
+        heroic_config_dirs = [
+            os.path.join(home, ".config", "heroic"),
+            os.path.join(home, ".var", "app", "com.heroicgameslauncher.hgl", "config", "heroic"),
+        ]
+        import json
+        for hdir in heroic_config_dirs:
+            for sub_json in [
+                os.path.join(hdir, "gog_store", "installed.json"),
+                os.path.join(hdir, "legendaryConfig", "legendary", "installed.json"),
+                os.path.join(hdir, "sideload_apps", "library.json"),
+            ]:
+                if os.path.isfile(sub_json):
+                    try:
+                        with open(sub_json, "r", encoding="utf-8", errors="ignore") as f:
+                            hdata = json.load(f)
+                            if isinstance(hdata, dict):
+                                items = hdata.get("installed", hdata) if "installed" in hdata else hdata
+                                if isinstance(items, dict):
+                                    items = list(items.values())
+                                if isinstance(items, list):
+                                    for g_entry in items:
+                                        if isinstance(g_entry, dict):
+                                            ipath = g_entry.get("install_path") or g_entry.get("folder_name")
+                                            if ipath and os.path.isdir(ipath):
+                                                parent_p = os.path.dirname(os.path.normpath(ipath))
+                                                if os.path.isdir(parent_p):
+                                                    candidates.append(parent_p)
+                                                candidates.append(os.path.normpath(ipath))
+                    except Exception:
+                        pass
+    else:
+        # 1. Multi-drive Standalone & Launcher Roots (Windows)
+        for d in drives:
+            candidates.extend([
+                f"{d}\\Gamess",
+                f"{d}\\Games",
+                f"{d}\\Игры",
+                f"{d}\\Torrent Games",
+                f"{d}\\PC Games",
+                f"{d}\\Repack Games",
+                f"{d}\\Portable Games",
+                f"{d}\\Standalone Games",
+                f"{d}\\Epic Games",
+                f"{d}\\EpicGames",
+                f"{d}\\GOG Games",
+                f"{d}\\GOG Galaxy\\Games",
+                f"{d}\\EA Games",
+                f"{d}\\Origin Games",
+                f"{d}\\Electronic Arts",
+                f"{d}\\Ubisoft Games",
+                f"{d}\\Ubisoft\\games",
+                f"{d}\\Ubisoft",
+                f"{d}\\Amazon Games",
+                f"{d}\\Amazon Games\\Library",
+                f"{d}\\itch\\apps",
+                f"{d}\\itch",
+                f"{d}\\Itch Games",
+                f"{d}\\Playnite\\Games",
+                f"{d}\\Playnite",
+            ])
+
+        # 2. System and User-Profile Launcher Platform Defaults (Windows)
+        candidates.extend([
+            os.path.expandvars(r"%ProgramFiles%\Epic Games"),
+            os.path.expandvars(r"%ProgramFiles(x86)%\Epic Games"),
+            os.path.expandvars(r"%ProgramFiles(x86)%\GOG Galaxy\Games"),
+            os.path.expandvars(r"%ProgramFiles%\GOG Galaxy\Games"),
+            os.path.expandvars(r"%ProgramFiles%\EA Games"),
+            os.path.expandvars(r"%ProgramFiles(x86)%\Origin Games"),
+            os.path.expandvars(r"%ProgramFiles(x86)%\Electronic Arts"),
+            os.path.expandvars(r"%ProgramFiles%\Electronic Arts"),
+            os.path.expandvars(r"%ProgramFiles(x86)%\Ubisoft\Ubisoft Game Launcher\games"),
+            os.path.expandvars(r"%ProgramFiles%\Ubisoft\Ubisoft Game Launcher\games"),
+            os.path.expandvars(r"%LOCALAPPDATA%\Amazon Games\Library"),
+            os.path.expandvars(r"%LOCALAPPDATA%\Amazon Games"),
+            os.path.expandvars(r"%APPDATA%\itch\apps"),
+            os.path.expandvars(r"%LOCALAPPDATA%\itch\apps"),
+            os.path.expandvars(r"%APPDATA%\Playnite\Games"),
+            os.path.expandvars(r"%LOCALAPPDATA%\Playnite\Games"),
+        ])
 
     # 3. Epic Games Manifests Discovery
     epic_manifest_dir = r"C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests"
@@ -332,15 +411,48 @@ COMMON_GAME_DIRECTORIES = get_default_game_folders(existing_only=True)
 # ==============================================================================
 
 # Process binaries that indicate an active Steam client session
-ACTIVE_STEAM_PROCESSES = {'steam.exe', 'steamservice.exe', 'steamwebhelper.exe'}
+ACTIVE_STEAM_PROCESSES = {'steam.exe', 'steamservice.exe', 'steamwebhelper.exe', 'steam', 'steamwebhelper'}
 
 
 def is_steam_running() -> bool:
     """
-    Checks whether steam.exe, steamservice.exe, or steamwebhelper.exe is running.
-    Uses Win32 Toolhelp32Snapshot API for 0ms execution without spawning console windows.
-    Configures 64-bit safe handle types to prevent handle truncation.
+    Checks whether Steam processes are running.
+    On Windows: uses Win32 Toolhelp32Snapshot API for 0ms execution without spawning console windows.
+    On Linux/SteamOS: inspects /proc or queries pgrep/pidof.
     """
+    if sys.platform != 'win32':
+        # 1. Direct /proc inspection (pure Python, 0 subprocesses, sub-millisecond)
+        try:
+            if os.path.isdir('/proc'):
+                for pid in os.listdir('/proc'):
+                    if pid.isdigit():
+                        try:
+                            comm_file = os.path.join('/proc', pid, 'comm')
+                            if os.path.isfile(comm_file):
+                                with open(comm_file, 'r', encoding='utf-8', errors='ignore') as f:
+                                    comm = f.read().strip().lower()
+                                    if comm in ('steam', 'steamwebhelper'):
+                                        return True
+                        except (IOError, OSError):
+                            continue
+        except Exception:
+            pass
+
+        # 2. Fallback to pgrep / pidof
+        try:
+            res = subprocess.run(['pgrep', '-x', 'steam'], capture_output=True, timeout=2, check=False)
+            if res.returncode == 0 and res.stdout.strip():
+                return True
+        except Exception:
+            pass
+        try:
+            res = subprocess.run(['pidof', 'steam'], capture_output=True, timeout=2, check=False)
+            if res.returncode == 0 and res.stdout.strip():
+                return True
+        except Exception:
+            pass
+        return False
+
     try:
         k32 = ctypes.windll.kernel32
         TH32CS_SNAPPROCESS = 0x00000002
@@ -407,13 +519,55 @@ def is_steam_running() -> bool:
 
 def close_steam_client(timeout_sec: float = 6.0, steam_path: Optional[str] = None) -> bool:
     """
-    Gracefully shuts down the Steam client using official steam.exe -shutdown,
-    falling back to graceful taskkill and force taskkill if necessary.
+    Gracefully shuts down the Steam client using official steam -shutdown,
+    falling back to graceful taskkill / SIGTERM and force kill if necessary.
     Eliminates blind os.startfile calls.
     Returns True if Steam processes were cleanly terminated, False otherwise.
     """
     if not is_steam_running():
         return True
+
+    if sys.platform != 'win32':
+        sp = steam_path or get_steam_path()
+        shutdown_cmds = []
+        if sp and os.path.isfile(os.path.join(sp, 'steam.sh')):
+            shutdown_cmds.append([os.path.join(sp, 'steam.sh'), '-shutdown'])
+        if shutil.which('steam'):
+            shutdown_cmds.append(['steam', '-shutdown'])
+        if shutil.which('flatpak'):
+            shutdown_cmds.append(['flatpak', 'run', 'com.valvesoftware.Steam', '-shutdown'])
+
+        for cmd in shutdown_cmds:
+            try:
+                subprocess.run(cmd, capture_output=True, timeout=3, check=False)
+                start = time.time()
+                while time.time() - start < timeout_sec:
+                    time.sleep(0.3)
+                    if not is_steam_running():
+                        return True
+            except Exception as e:
+                logger.debug(f"Graceful Linux steam shutdown failed ({cmd}): {e}")
+
+        # 2. SIGTERM graceful shutdown
+        try:
+            subprocess.run(['pkill', '-TERM', '-x', 'steam'], capture_output=True, timeout=2, check=False)
+            start = time.time()
+            while time.time() - start < 3.0:
+                time.sleep(0.3)
+                if not is_steam_running():
+                    return True
+        except Exception as e:
+            logger.debug(f"SIGTERM steam shutdown failed: {e}")
+
+        # 3. Forced SIGKILL fallback
+        try:
+            subprocess.run(['pkill', '-9', '-x', 'steam'], capture_output=True, timeout=2, check=False)
+            subprocess.run(['pkill', '-9', '-x', 'steamwebhelper'], capture_output=True, timeout=2, check=False)
+            time.sleep(0.3)
+        except Exception as e:
+            logger.debug(f"SIGKILL steam shutdown failed: {e}")
+
+        return not is_steam_running()
 
     # 1. Official Valve graceful CLI shutdown without blind startfile
     sp = steam_path or get_steam_path()
@@ -474,13 +628,36 @@ def close_steam_client(timeout_sec: float = 6.0, steam_path: Optional[str] = Non
 
 
 def safe_close_steam(steam_path: Optional[str] = None, timeout_sec: float = 5.0) -> bool:
-    """Safe Steam shutdown calling steam.exe -shutdown, with timeout fallback kill."""
+    """Safe Steam shutdown calling steam -shutdown, with timeout fallback kill."""
     return close_steam_client(timeout_sec=timeout_sec, steam_path=steam_path)
 
 
 def launch_steam(steam_path: Optional[str] = None, big_picture: bool = False) -> bool:
-    """Launches steam.exe detached from current process."""
+    """Launches steam client detached from current process."""
     sp = steam_path or get_steam_path()
+    if sys.platform != 'win32':
+        args = []
+        if sp and 'com.valvesoftware.Steam' in sp:
+            args = ['flatpak', 'run', 'com.valvesoftware.Steam']
+        elif sp and os.path.isfile(os.path.join(sp, 'steam.sh')):
+            args = [os.path.join(sp, 'steam.sh')]
+        elif shutil.which('steam'):
+            args = ['steam']
+        elif sp and os.path.isfile(os.path.join(sp, 'steam')):
+            args = [os.path.join(sp, 'steam')]
+        else:
+            args = ['steam']
+
+        if big_picture:
+            args.append('-gamepadui')
+
+        try:
+            subprocess.Popen(args, start_new_session=True)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to launch steam on Linux: {e}")
+            return False
+
     if not sp:
         return False
     steam_exe = os.path.normpath(os.path.join(sp, "steam.exe"))
@@ -500,8 +677,28 @@ def launch_steam(steam_path: Optional[str] = None, big_picture: bool = False) ->
 
 
 def get_steam_path() -> Optional[str]:
-    """Finds Steam installation directory via Windows registry or default locations."""
-    # 1. Check HKCU\Software\Valve\Steam -> SteamPath
+    """Finds Steam installation directory via Linux paths, Windows registry, or default locations."""
+    if sys.platform != "win32":
+        home = os.path.expanduser("~")
+        linux_candidates = [
+            os.path.join(home, ".local", "share", "Steam"),
+            os.path.join(home, ".steam", "steam"),
+            os.path.join(home, ".steam", "root"),
+            os.path.join(home, ".var", "app", "com.valvesoftware.Steam", ".steam", "steam"),
+            os.path.join(home, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam"),
+            os.path.join(home, ".var", "app", "com.valvesoftware.Steam", "data", "Steam"),
+            os.path.join(home, "snap", "steam", "common", ".local", "share", "Steam"),
+        ]
+        # Prefer paths that actually exist and contain 'userdata'
+        for p in linux_candidates:
+            if os.path.isdir(p) and os.path.isdir(os.path.join(p, "userdata")):
+                return os.path.realpath(p) if os.path.islink(p) else os.path.normpath(p)
+        for p in linux_candidates:
+            if os.path.isdir(p):
+                return os.path.realpath(p) if os.path.islink(p) else os.path.normpath(p)
+        return None
+
+    # 1. Check HKCU\\Software\\Valve\\Steam -> SteamPath
     try:
         import winreg
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam") as key:
@@ -512,7 +709,7 @@ def get_steam_path() -> Optional[str]:
     except Exception:
         pass
 
-    # 2. Check HKLM\SOFTWARE\WOW6432Node\Valve\Steam -> InstallPath
+    # 2. Check HKLM\\SOFTWARE\\WOW6432Node\\Valve\\Steam -> InstallPath
     try:
         import winreg
         for subkey in [r"SOFTWARE\WOW6432Node\Valve\Steam", r"SOFTWARE\Valve\Steam"]:
@@ -866,8 +1063,15 @@ def is_valid_executable(filename: str, clean_name: str = "") -> bool:
     if not filename or not isinstance(filename, str):
         return False
     lower = filename.lower()
-    if not lower.endswith('.exe'):
-        return False
+    if sys.platform == 'win32':
+        if not lower.endswith('.exe'):
+            return False
+    else:
+        # On Linux / SteamOS, accept .exe (for Proton compatibility) and native Linux executables
+        valid_exts = ('.exe', '.sh', '.x86_64', '.x86', '.bin', '.appimage')
+        if not lower.endswith(valid_exts):
+            if '.' in lower:
+                return False
     clean_lower = clean_name.lower() if clean_name else ""
 
     # Strict regex pattern blacklist (unins000.exe, UnityCrashHandler*.exe, DXSETUP.exe, vcredist*.exe, etc.)

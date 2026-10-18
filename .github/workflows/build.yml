@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test-and-build:
+  test-and-build-windows:
     name: Test & Build Windows x64
     runs-on: windows-latest
 
@@ -41,9 +41,142 @@ jobs:
         run: |
           pyinstaller DeckBridge.spec --noconfirm
 
-      - name: Upload DeckBridge Build Artifact
+      - name: Create Windows ZIP Distribution
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/DeckBridge/* -DestinationPath dist/DeckBridge-Windows-x64.zip
+
+      - name: Upload DeckBridge Windows Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DeckBridge-windows-x64
-          path: dist/DeckBridge/
+          name: DeckBridge-Windows-x64
+          path: dist/DeckBridge-Windows-x64.zip
           if-no-files-found: error
+
+      - name: Release Windows Bundle on Tag
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: dist/DeckBridge-Windows-x64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test-and-build-linux:
+    name: Test & Build Linux / Steam Deck (AppImage & Tarball)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install System Dependencies for Qt6 & AppImage
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1 \
+            libegl1 \
+            libxkbcommon-x11-0 \
+            libxcb-cursor0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render-util0 \
+            libxcb-shape0 \
+            libxcb-xfixes0 \
+            libxcb-sync1 \
+            libdbus-1-3 \
+            libfuse2 \
+            wget \
+            file
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Unit & Integration Tests (Headless)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          pytest test_suite.py
+          pytest test_gui.py
+          pytest test_lifecycle_mock.py
+          pytest test_harness.py
+
+      - name: Build Native Linux Executable with PyInstaller
+        run: |
+          pyinstaller DeckBridge.spec --noconfirm
+
+      - name: Package Standalone Linux Tarball
+        run: |
+          cd dist
+          tar -czvf DeckBridge-Linux-x64.tar.gz -C DeckBridge .
+          cd ..
+
+      - name: Build Native Steam Deck AppImage
+        run: |
+          # 1. Setup AppDir hierarchy
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
+
+          # 2. Copy compiled binary folder into usr/bin
+          cp -r dist/DeckBridge/* AppDir/usr/bin/
+
+          # 3. Copy desktop entry and icons
+          cp deckbridge.desktop AppDir/usr/share/applications/deckbridge.desktop
+          cp deckbridge.desktop AppDir/deckbridge.desktop
+          cp deckbridge.png AppDir/usr/share/icons/hicolor/256x256/apps/deckbridge.png
+          cp deckbridge.png AppDir/deckbridge.png
+          cp deckbridge.png AppDir/.DirIcon
+
+          # 4. Create AppRun entrypoint script
+          cat << 'EOF' > AppDir/AppRun
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          export PATH="${HERE}/usr/bin:${PATH}"
+          export LD_LIBRARY_PATH="${HERE}/usr/bin:${LD_LIBRARY_PATH}"
+          exec "${HERE}/usr/bin/DeckBridge" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+          # 5. Download and extract appimagetool (runs in CI containers without requiring host FUSE)
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage --appimage-extract
+
+          # 6. Build AppImage
+          ARCH=x86_64 ./squashfs-root/AppRun AppDir dist/DeckBridge-x86_64.AppImage
+          chmod +x dist/DeckBridge-x86_64.AppImage
+
+      - name: Upload Linux AppImage Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeckBridge-Linux-AppImage
+          path: dist/DeckBridge-x86_64.AppImage
+          if-no-files-found: error
+
+      - name: Upload Linux Standalone Tarball Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeckBridge-Linux-x64-tar
+          path: dist/DeckBridge-Linux-x64.tar.gz
+          if-no-files-found: error
+
+      - name: Release Linux Bundles on Tag
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: |
+            dist/DeckBridge-x86_64.AppImage
+            dist/DeckBridge-Linux-x64.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -51,9 +51,10 @@ class MilitaryStressTestHarness(unittest.TestCase):
         self.assertIn('steamwebhelper.exe', ACTIVE_STEAM_PROCESSES)
 
         for proc_name in ['steam.exe', 'steamservice.exe', 'steamwebhelper.exe']:
-            with patch('subprocess.run') as mock_run:
+            with patch('sys.platform', 'win32'), \
+                 patch('subprocess.run') as mock_run:
                 mock_run.return_value = MagicMock(stdout=f'"{proc_name}","1234","Console","1","50,000 K"')
-                with patch('ctypes.windll.kernel32.CreateToolhelp32Snapshot', return_value=-1):
+                with patch('ctypes.windll.kernel32.CreateToolhelp32Snapshot', create=True, return_value=-1):
                     self.assertTrue(is_steam_running(), f"Must detect running {proc_name}")
 
     def test_0_1_atomic_write_protection(self):

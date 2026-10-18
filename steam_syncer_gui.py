@@ -175,7 +175,11 @@ BASE_DIR = get_base_dir()
 def get_app_data_dir() -> str:
     local_app_data = os.environ.get('LOCALAPPDATA')
     if not local_app_data:
-        local_app_data = os.path.join(os.path.expanduser('~'), 'AppData', 'Local')
+        if sys.platform == 'win32':
+            local_app_data = os.path.join(os.path.expanduser('~'), 'AppData', 'Local')
+        else:
+            xdg_data = os.environ.get('XDG_DATA_HOME')
+            local_app_data = xdg_data if xdg_data else os.path.join(os.path.expanduser('~'), '.local', 'share')
     deckbridge_dir = os.path.join(local_app_data, 'DeckBridge')
     return deckbridge_dir
 
@@ -1599,7 +1603,7 @@ class MainWindow(FluentWindow):
         # Compact utility window sizing: 860x620, minimum 760x520
         self.resize(860, 620)
         self.setMinimumSize(760, 520)
-        self.setMicaEffectEnabled(True)
+        self.setMicaEffectEnabled(sys.platform == 'win32')
         self.updateFrameless()
 
         # Center window on primary display
@@ -1617,26 +1621,30 @@ class MainWindow(FluentWindow):
         if hasattr(self.navigationInterface, 'panel') and hasattr(self.navigationInterface.panel, 'bottomLayout'):
             self.navigationInterface.panel.bottomLayout.setContentsMargins(0, 0, 0, 0)
 
-        # Windows 11 Fluent / Acrylic blur styling (transparent backing to allow native DWM blur material through)
-        self.setStyleSheet("""
-            MainWindow, StackedWidget, QStackedWidget,
+        # Windows 11 Fluent / Acrylic blur styling vs Linux clean Fluent dark backdrop
+        main_win_bg = "transparent" if sys.platform == 'win32' else "#202020"
+        self.setStyleSheet(f"""
+            MainWindow {{
+                background-color: {main_win_bg};
+            }}
+            StackedWidget, QStackedWidget,
             #homeInterface, #settingsInterface,
             #homeScrollViewport, #settingsScrollViewport,
             #homeScrollWidget, #settingsScrollWidget,
-            #gamesScrollViewport, #gamesContainer {
+            #gamesScrollViewport, #gamesContainer {{
                 background-color: transparent;
                 background: transparent;
                 border: none;
-            }
-            SimpleCardWidget {
+            }}
+            SimpleCardWidget {{
                 background-color: rgba(30, 30, 35, 0.78);
                 border: 1px solid rgba(255, 255, 255, 0.08);
                 border-radius: 8px;
-            }
-            SimpleCardWidget:hover {
+            }}
+            SimpleCardWidget:hover {{
                 background-color: rgba(38, 38, 45, 0.88);
                 border: 1px solid rgba(255, 255, 255, 0.16);
-            }
+            }}
         """)
 
         # Enable authentic Windows 11 Acrylic blur-behind backdrop
@@ -1764,12 +1772,15 @@ class MainWindow(FluentWindow):
     def paintEvent(self, e):
         """
         Clears the backing store cleanly with CompositionMode_Clear when Acrylic blur is active.
-        Completely eliminates resize trails, smearing, and duplicate widget ghosting,
-        allowing the Windows 11 Acrylic frosted-glass blur to shine through.
+        Completely eliminates resize trails, smearing, and duplicate widget ghosting on Windows.
+        On Linux, delegates to super().paintEvent(e) for clean native rendering.
         """
-        painter = QPainter(self)
-        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
-        painter.fillRect(self.rect(), Qt.GlobalColor.transparent)
+        if sys.platform == 'win32':
+            painter = QPainter(self)
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
+            painter.fillRect(self.rect(), Qt.GlobalColor.transparent)
+        else:
+            super().paintEvent(e)
 
     def resizeEvent(self, e):
         """Reposition titleBar to full window width and repaint smoothly."""
@@ -1821,14 +1832,15 @@ class MainWindow(FluentWindow):
 
     def nativeEvent(self, eventType, message):
         """Listens for Windows 11 live personalization and accent color changes."""
-        try:
-            from ctypes.wintypes import MSG
-            msg = MSG.from_address(message.__int__())
-            if msg.message in (0x001A, 0x0320):
-                if self.config.get('sync_accent_color', True):
-                    self.sync_windows_accent_color()
-        except Exception:
-            pass
+        if sys.platform == "win32":
+            try:
+                from ctypes.wintypes import MSG
+                msg = MSG.from_address(message.__int__())
+                if msg.message in (0x001A, 0x0320):
+                    if self.config.get('sync_accent_color', True):
+                        self.sync_windows_accent_color()
+            except Exception:
+                pass
 
         return super().nativeEvent(eventType, message)
 
@@ -3466,7 +3478,12 @@ class MainWindow(FluentWindow):
                             return
                         except Exception:
                             pass
-                    subprocess.Popen(['explorer.exe', norm], shell=False)
+                    if sys.platform == "win32":
+                        subprocess.Popen(['explorer.exe', norm], shell=False)
+                    elif sys.platform == "darwin":
+                        subprocess.Popen(['open', norm])
+                    else:
+                        subprocess.Popen(['xdg-open', norm])
             except Exception as e:
                 logger.warning(f"Cannot open directory {p}: {e}")
 
@@ -3665,6 +3682,11 @@ def main():
 
     configure_high_dpi()
     app = get_or_create_qapp()
+    if sys.platform != "win32":
+        try:
+            app.setDesktopFileName("deckbridge.desktop")
+        except Exception:
+            pass
     base_dir = BASE_DIR
     for ic in ("DeckBridge.ico", "app_icon.ico", "DeckBridge_logo.png"):
         ip = os.path.join(base_dir, ic)

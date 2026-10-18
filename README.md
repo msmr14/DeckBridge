@@ -24,10 +24,12 @@
 
 | Package | Format | Target Platform | Download Link |
 | :--- | :--- | :--- | :--- |
-| **DeckBridge Portable** | `.zip` (Standalone) | Windows 10 & 11 (x64) | [**DeckBridge-v1.0.0-Windows-x64.zip**](https://github.com/msmr14/DeckBridge/releases/download/v1.0.0/DeckBridge-v1.0.0-Windows-x64.zip) |
+| **DeckBridge Linux AppImage** | `.AppImage` (Self-contained) | SteamOS (Steam Deck) & Linux (x64) | [**DeckBridge-x86_64.AppImage**](https://github.com/msmr14/DeckBridge/releases/latest) |
+| **DeckBridge Linux Tarball** | `.tar.gz` (Standalone folder) | SteamOS & Linux (x64) | [**DeckBridge-Linux-x64.tar.gz**](https://github.com/msmr14/DeckBridge/releases/latest) |
+| **DeckBridge Windows Portable** | `.zip` (Standalone) | Windows 10 & 11 (x64) | [**DeckBridge-v1.0.0-Windows-x64.zip**](https://github.com/msmr14/DeckBridge/releases/download/v1.0.0/DeckBridge-v1.0.0-Windows-x64.zip) |
 | **Microsoft Store** | Store App | Windows 10 & 11 (x64) | *Coming soon to Microsoft Store* |
 
-> 💡 **Quick Start:** Download `DeckBridge-v1.0.0-Windows-x64.zip`, extract to any directory, and run `DeckBridge.exe`. No installation required!
+> 💡 **Steam Deck Quick Start:** Download `DeckBridge-x86_64.AppImage` in Desktop Mode, mark it executable (`chmod +x DeckBridge-x86_64.AppImage`), and double-click to run! You can also add it to Steam as a non-Steam game to open it anytime. No Proton or Wine required — it runs 100% natively on SteamOS!
 
 ---
 
