@@ -270,15 +270,15 @@ def _do_test_gui():
     window.refresh_steam_status()
     steam_path = window.txt_steam_path.text().strip() if hasattr(window, 'txt_steam_path') else steam_syncer.get_steam_path()
     steam_installed = bool(steam_path and os.path.isdir(steam_path))
-    if steam_syncer.is_steam_running():
+    if not steam_installed:
+        assert window.steam_desc.isVisible() == True
+        assert window._current_button_mode == "browse"
+        assert window.action_stack.currentIndex() == 2
+    elif steam_syncer.is_steam_running():
         assert "Steam" in window.steam_title.text()
         assert window._current_button_mode == "close"
         assert window.action_stack.currentIndex() == 1
         assert "Steam" in window.btn_close_steam.text()
-    elif not steam_installed:
-        assert window.steam_desc.isVisible() == True
-        assert window._current_button_mode == "browse"
-        assert window.action_stack.currentIndex() == 2
     else:
         assert window.steam_desc.isVisible() == True
         assert window._current_button_mode == "sync"
@@ -407,6 +407,8 @@ def _do_test_gui():
 
     # 15. Verify UI Polish & Regressions (The 7 Requirements)
     # Req 1 & 2: Button text does not include game count (only title does)
+    window._current_games = []
+    window._new_games_count = -1
     window._scanned_games_count = 5
     window.update_sync_button_text()
     assert "(" not in window.btn_sync.text()
@@ -422,8 +424,12 @@ def _do_test_gui():
     assert window.btn_close_steam.lbl_text.text() != ""
 
     # Req 5: Native Mica / Fluent transparent background enabled
-    assert window.isMicaEffectEnabled() == True
-    assert "background-color: transparent" in window.styleSheet()
+    if sys.platform == 'win32':
+        assert window.isMicaEffectEnabled() == True
+        assert "background-color: transparent" in window.styleSheet()
+    else:
+        assert window.isMicaEffectEnabled() == False
+        assert "background-color: #202020" in window.styleSheet()
     assert "#161618" not in window.styleSheet()
 
     # Req 6: Steam configuration labels visible without QSizePolicy.Ignored collapse

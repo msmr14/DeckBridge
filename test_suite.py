@@ -1,4 +1,5 @@
 import os
+import sys
 import tempfile
 import unittest
 
@@ -398,9 +399,13 @@ class TestSteamSyncer(unittest.TestCase):
 
                 loaded = load_shortcuts_vdf(vdf_path)
                 entry = loaded['shortcuts']['0']
-                # Must not contain forward slashes in Windows shortcuts.vdf
-                self.assertNotIn('/', entry['Exe'])
-                self.assertNotIn('/', entry['StartDir'])
+                if sys.platform == 'win32':
+                    # Must not contain forward slashes in Windows shortcuts.vdf
+                    self.assertNotIn('/', entry['Exe'])
+                    self.assertNotIn('/', entry['StartDir'])
+                else:
+                    self.assertIn('/', entry['Exe'])
+                    self.assertIn('/', entry['StartDir'])
 
     def test_save_shortcuts_vdf_readonly_file(self):
         import stat
@@ -548,11 +553,15 @@ class TestSteamSyncer(unittest.TestCase):
         self.assertIn("games", cand_str)
         self.assertIn("epic games", cand_str)
         self.assertIn("gog", cand_str)
-        self.assertIn("ea games", cand_str)
-        self.assertIn("ubisoft", cand_str)
-        self.assertIn("amazon games", cand_str)
-        self.assertIn("itch", cand_str)
-        self.assertIn("playnite", cand_str)
+        if sys.platform == 'win32':
+            self.assertIn("ea games", cand_str)
+            self.assertIn("ubisoft", cand_str)
+            self.assertIn("amazon games", cand_str)
+            self.assertIn("itch", cand_str)
+            self.assertIn("playnite", cand_str)
+        else:
+            self.assertIn("heroic", cand_str)
+            self.assertIn("lutris", cand_str)
 
     def test_launcher_executables_ignored_in_scan(self):
         launcher_exes = [

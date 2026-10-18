@@ -196,8 +196,13 @@ def get_default_game_folders(existing_only: bool = True) -> List[str]:
             os.path.join(home, "Games", "Lutris"),
             os.path.join(home, "Games", "GOG Games"),
             os.path.join(home, "Games", "Epic Games"),
+            os.path.join(home, "Games", "EA Games"),
+            os.path.join(home, "Games", "Ubisoft"),
+            os.path.join(home, "Games", "Amazon Games"),
+            os.path.join(home, "Games", "itch"),
             os.path.join(home, ".var", "app", "com.heroicgameslauncher.hgl", "config", "heroic", "Games"),
             os.path.join(home, ".local", "share", "bottles", "bottles"),
+            os.path.join(home, ".local", "share", "lutris", "games"),
             os.path.join(home, ".wine", "drive_c", "Games"),
             "/run/media/mmcblk0p1",
             "/run/media/mmcblk0p1/Games",
@@ -398,7 +403,25 @@ def get_default_game_folders(existing_only: bool = True) -> List[str]:
             results.append(norm)
 
     if not results and existing_only:
+        if sys.platform != 'win32':
+            home = os.path.expanduser("~")
+            return [os.path.join(home, "Games"), "/run/media/mmcblk0p1/Games"]
         return [r"D:\Gamess", r"C:\Games"]
+
+    if len(results) < 2 and existing_only:
+        if sys.platform != 'win32':
+            home = os.path.expanduser("~")
+            for ld in [os.path.join(home, "Games"), "/run/media/mmcblk0p1/Games"]:
+                if ld not in results:
+                    results.append(ld)
+                if len(results) >= 2:
+                    break
+        else:
+            for wd in [r"D:\Gamess", r"C:\Games"]:
+                if wd not in results:
+                    results.append(wd)
+                if len(results) >= 2:
+                    break
 
     return results
 

@@ -32,10 +32,10 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          pytest test_suite.py
-          pytest test_gui.py
-          pytest test_lifecycle_mock.py
-          pytest test_harness.py
+          pytest -v --tb=short test_suite.py
+          pytest -v --tb=short test_gui.py
+          pytest -v --tb=short test_lifecycle_mock.py
+          pytest -v --tb=short test_harness.py
 
       - name: Build Executable with PyInstaller
         run: |
@@ -105,10 +105,10 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          pytest test_suite.py
-          pytest test_gui.py
-          pytest test_lifecycle_mock.py
-          pytest test_harness.py
+          pytest -v --tb=short test_suite.py
+          pytest -v --tb=short test_gui.py
+          pytest -v --tb=short test_lifecycle_mock.py
+          pytest -v --tb=short test_harness.py
 
       - name: Build Native Linux Executable with PyInstaller
         run: |

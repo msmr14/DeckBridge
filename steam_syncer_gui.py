@@ -2770,7 +2770,6 @@ class MainWindow(FluentWindow):
 
         self.refresh_steam_status()
         self.update_sync_button_text()
-        self.preview_scanned_games()
 
     def update_sync_button_text(self):
         count = getattr(self, '_scanned_games_count', 0)
