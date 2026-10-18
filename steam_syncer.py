@@ -547,8 +547,8 @@ def get_steam_users_info(steam_path: str) -> List[Dict[str, Any]]:
     Returns list of dicts with:
     - account_id: 32-bit ID (folder in userdata)
     - steamid64: 64-bit Steam ID string
-    - persona_name: display name (e.g. scalevvizard)
-    - account_name: login username (e.g. neckich_bitch)
+    - persona_name: display name (e.g. PlayerOne)
+    - account_name: login username (e.g. player_one)
     - is_active: whether this is currently the active/most recent account
     - auto_login: whether AutoLogin == '1'
     - timestamp: last login timestamp

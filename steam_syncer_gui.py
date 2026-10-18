@@ -2503,6 +2503,7 @@ class MainWindow(FluentWindow):
             }
         """)
         log_layout.addWidget(self.log_text)
+        layout.addWidget(self.log_card)
 
         # Card 5: Support & Donations / Поддержать проект
         self.donate_card = SimpleCardWidget(settings_container)

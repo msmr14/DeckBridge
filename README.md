@@ -1,3 +1,7 @@
+<div align="right">
+  <b>English</b> | <a href="README.ru.md">Русский</a>
+</div>
+
 <div align="center">
 
 # DeckBridge
@@ -16,57 +20,74 @@
 
 ---
 
-## 📥 Download DeckBridge 1.0.0 / Скачать
+## 📥 Download DeckBridge 1.0.0
 
-| Package | Format | Target Platform | Link |
+| Package | Format | Target Platform | Download Link |
 | :--- | :--- | :--- | :--- |
-| **DeckBridge Portable** | `.zip` (Standalone) | Windows 10 & 11 (x64) | [DeckBridge-v1.0.0-Windows-x64.zip](https://github.com/msmr14/DeckBridge/releases/download/v1.0.0/DeckBridge-v1.0.0-Windows-x64.zip) |
+| **DeckBridge Portable** | `.zip` (Standalone) | Windows 10 & 11 (x64) | [**DeckBridge-v1.0.0-Windows-x64.zip**](https://github.com/msmr14/DeckBridge/releases/download/v1.0.0/DeckBridge-v1.0.0-Windows-x64.zip) |
 | **Microsoft Store** | Store App | Windows 10 & 11 (x64) | *Coming soon to Microsoft Store* |
 
+> 💡 **Quick Start:** Download `DeckBridge-v1.0.0-Windows-x64.zip`, extract to any directory, and run `DeckBridge.exe`. No installation required!
 
 ---
 
-## 🎮 Overview / О проекте
+## 🎮 Overview
 
-**DeckBridge** is an open-source, local-first utility for Windows 11 and Steam Deck that automatically discovers non-Steam games across all drives and launchers (Epic Games, GOG, Amazon Games, EA App, Ubisoft Connect, Itch.io, standalone folders), registers them safely into Valve's Steam shortcuts (`shortcuts.vdf`), and fetches official high-resolution library artwork directly from Valve's official CDN and SteamGridDB.
+**DeckBridge** is an open-source, local-first utility for Windows 11 and Steam Deck that automatically discovers non-Steam games across all drives and launchers (Epic Games, GOG, Amazon Games, EA App, Ubisoft Connect, Itch.io, standalone directories, and repacks), registers them safely into Valve's Steam shortcuts (`shortcuts.vdf`), and fetches official high-resolution library artwork directly from Valve's official CDN and SteamGridDB.
 
 ---
 
-## ✨ Key Features / Ключевые возможности
+## 📸 Screenshots
+
+<div align="center">
+
+### 🎮 Discover non-Steam games with automatic official Steam artwork
+<img src="docs/screenshots/library_view.png" width="900" alt="DeckBridge Library" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+
+<br/><br/>
+
+### ⚙️ Fluent Design Settings, Safety Controls & Support
+<img src="docs/screenshots/settings_view.png" width="900" alt="DeckBridge Settings" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+
+</div>
+
+---
+
+## ✨ Key Features
 
 ### 🛡️ Bulletproof `shortcuts.vdf` Safety
-- **Steam Running Guard**: Live process detection via Windows API, `tasklist`, and PowerShell blocks modifications while `steam.exe` is active, preventing Steam from overwriting newly added shortcuts on exit.
-- **Atomic File Writing**: Modifications are written to temporary files with `fsync()` before atomic swap (`os.replace`), preventing binary corruption.
-- **Automated Backup Hierarchy**: Creates `shortcuts.vdf.bak` and timestamped historical snapshots before any write operation.
-- **Integrity Validation**: Verifies VDF binary structure integrity prior to committing changes.
+* **Active Steam Process Guard**: Live process detection via Windows API, `tasklist`, and PowerShell blocks writes while `steam.exe` is running, preventing Steam from overwriting newly added shortcuts on exit.
+* **Atomic File Writes**: Modifications are written to temporary files with disk cache flush (`fsync`) before an instantaneous atomic swap (`os.replace`), preventing binary corruption.
+* **Automated Backup Hierarchy**: Creates `shortcuts.vdf.bak` and timestamped historical snapshots before any write operation.
+* **Integrity Validation**: Verifies VDF binary structure integrity prior to committing changes.
 
 ### 🎨 Official CDN Artwork Scraper (Zero API Key Needed)
-- **Direct Valve Storefront CDN**: Queries Steam Storefront search API to retrieve official 4-piece artwork assets without requiring developer API keys:
-  - **Portrait Capsule** (600x900 cover) &rarr; `{grid_id}p.png`
-  - **Hero Banner** &rarr; `{grid_id}_hero.png`
-  - **Logo with Transparency** &rarr; `{grid_id}_logo.png`
-  - **Wide Header** &rarr; `{grid_id}.png`
-- **Dual 32-bit & 64-bit Steam ID Compatibility**: Generates both traditional 32-bit Grid IDs and modern 64-bit Steam IDs required by recent Steam client releases (2024+), Big Picture, and Steam Deck.
-- **SteamGridDB v2 Integration**: Optional support for custom community artwork via SteamGridDB API key.
-- **Interactive Cover Selector**: One-click in-app gallery to review and choose alternative artwork variants.
+* **Direct Valve Storefront CDN Access**: Queries Steam Storefront search API to retrieve official 4-piece artwork assets without requiring developer API keys:
+  * **Portrait Capsule** (600x900 cover) &rarr; `{grid_id}p.png`
+  * **Hero Banner** &rarr; `{grid_id}_hero.png`
+  * **Logo with Transparency** &rarr; `{grid_id}_logo.png`
+  * **Wide Header** &rarr; `{grid_id}.png`
+* **Dual 32-bit & 64-bit Steam ID Compatibility**: Generates both traditional 32-bit Grid IDs and modern 64-bit Steam IDs required by recent Steam client releases (2024+), Big Picture, and Steam Deck.
+* **SteamGridDB v2 Integration**: Optional support for custom community artwork via SteamGridDB API key.
+* **Interactive Cover Selector**: One-click in-app gallery to review and choose alternative artwork variants.
 
 ### 🧠 Intelligent Game & Executable Discovery
-- **Junk Filtering**: Filters out setup files, crash reporters, redistributables (`vcredist`, `dxsetup`), anti-cheat engines (`eac`, `battleye`), and helper utilities (`epicwebhelper`, `UnityCrashHandler`).
-- **Launcher vs. Shipping Binary Detection**: Detects root game executables with heuristics prioritizing clean directory names and parent root wrappers over subfolder shipping binaries (`Binaries/Win64/*-Shipping.exe`).
-- **Clean Naming Engine**: Strips release group tags (`-InsaneRamZes`, `[GOG]`, `[DRM-Free]`, `(Portable)`), version numbers (`v1.0.4`), and build identifiers (`Build 12345`).
+* **Junk Filtering**: Filters out setup files, crash reporters, redistributables (`vcredist`, `dxsetup`), anti-cheat engines (`eac`, `battleye`), and helper utilities (`epicwebhelper`, `UnityCrashHandler`).
+* **Launcher vs. Shipping Binary Detection**: Detects root game executables with heuristics prioritizing clean directory names and parent root wrappers over subfolder shipping binaries (`Binaries/Win64/*-Shipping.exe`).
+* **Clean Naming Engine**: Strips release group tags (`-InsaneRamZes`, `[GOG]`, `[DRM-Free]`, `(Portable)`), version numbers (`v1.0.4`), and build identifiers (`Build 12345`).
 
 ### 🪟 Windows 11 Fluent UI
-- **Native Acrylic Backdrop**: Hardware-accelerated real-time DWM Acrylic blur backdrop behind the window.
-- **Dynamic Accent Synchronization**: Automatically syncs with the Windows 11 system accent color and adapts to Dark/Light themes.
-- **Frameless Window Integration**: Custom Fluent title bar with Steam status indicator, refresh controls, and close buttons.
-- **Internationalization (i18n)**: Fully localized into 7 languages:
-  - English (`en-us`)
-  - Русский (`ru-ru`)
-  - Deutsch (`de-de`)
-  - Français (`fr-fr`)
-  - Español (`es-es`)
-  - 简体中文 (`zh-hans`)
-  - 日本語 (`ja-jp`)
+* **Native Acrylic Backdrop**: Hardware-accelerated real-time DWM Acrylic blur backdrop behind the window.
+* **Dynamic Accent Synchronization**: Automatically syncs with the Windows 11 system accent color and adapts to Dark/Light themes.
+* **Frameless Window Integration**: Custom Fluent title bar with Steam status indicator, refresh controls, and close buttons.
+* **Internationalization (i18n)**: Fully localized into 7 languages with on-the-fly switching:
+  * English (`en-us`)
+  * Русский (`ru-ru`)
+  * Deutsch (`de-de`)
+  * Français (`fr-fr`)
+  * Español (`es-es`)
+  * 简体中文 (`zh-hans`)
+  * 日本語 (`ja-jp`)
 
 ---
 
@@ -92,13 +113,13 @@ DeckBridge/
 
 ---
 
-## 🚀 Quick Start / Быстрый запуск
+## 🚀 Quick Start
 
 ### 1. Requirements
-- Windows 10 (1809+) or Windows 11
-- Python 3.12+ (if running from source)
+* Windows 10 (1809+) or Windows 11
+* Python 3.12+ (if running from source)
 
-### 2. Installation
+### 2. Clone and Install Dependencies
 ```powershell
 # Clone the repository
 git clone https://github.com/msmr14/DeckBridge.git
@@ -112,7 +133,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### 3. Launching
+### 3. Running DeckBridge
 
 #### Graphical Interface (GUI)
 ```powershell
@@ -127,17 +148,17 @@ python steam_syncer.py "C:\Games" "D:\Games"
 ```
 
 **CLI Arguments**:
-- `--dry-run`: Scan games and display planned changes without modifying any files.
-- `--no-art`: Import shortcuts without downloading artwork.
-- `--steam-path "C:\Path\To\Steam"`: Explicit Steam installation path.
-- `--user-id "12345678"`: Target specific Steam user account ID.
-- `-v`, `--verbose`: Enable detailed debug logging.
+* `--dry-run`: Scan games and display planned changes without modifying any files.
+* `--no-art`: Import shortcuts without downloading artwork.
+* `--steam-path "C:\Path\To\Steam"`: Explicit Steam installation path.
+* `--user-id "12345678"`: Target specific Steam user account ID.
+* `-v`, `--verbose`: Enable detailed debug logging.
 
 ---
 
-## 📦 Building Executable & MSIX Package
+## 📦 Building from Source & Packaging
 
-### Building Portable Executable with PyInstaller
+### Building Standalone Executable with PyInstaller
 ```powershell
 pyinstaller DeckBridge.spec --noconfirm
 ```
@@ -145,10 +166,10 @@ The compiled standalone build will be located in `dist/DeckBridge/`.
 
 ### MSIX Packaging for Microsoft Store
 DeckBridge is architected for Microsoft Store and WindowsApps container compliance:
-- Configuration is saved in `%LOCALAPPDATA%\DeckBridge\config.json`.
-- Cover artwork cache is stored in `%LOCALAPPDATA%\DeckBridge\covers_cache`.
-- All 7 UI languages are declared in `<Resources>` within `Package.appxmanifest`.
-- No personal user paths or IDs are bundled in the package payload.
+* Configuration is saved in `%LOCALAPPDATA%\DeckBridge\config.json`.
+* Cover artwork cache is stored in `%LOCALAPPDATA%\DeckBridge\covers_cache`.
+* All 7 UI languages are declared in `<Resources>` within `Package.appxmanifest`.
+* No personal user paths or IDs are bundled in the package payload.
 
 ---
 
@@ -168,38 +189,38 @@ DeckBridge is architected for Microsoft Store and WindowsApps container complian
 ## 🔒 Privacy & Safety
 
 DeckBridge values your privacy:
-- **Zero data collection**: No telemetry, no remote servers, no user tracking.
-- Read the complete [Privacy Policy](PRIVACY.md).
+* **Zero data collection**: No telemetry, no remote tracking servers, no telemetry beacons.
+* Read the complete [Privacy Policy](PRIVACY.md).
 
 ---
 
-## ❤️ Support the Developer / Поддержать проект
+## ❤️ Support the Developer
 
-Если DeckBridge помогает вам легко и красиво организовывать библиотеку игр на ПК и Steam Deck, вы можете поддержать автора донатом на развитие проекта:
+If DeckBridge makes managing your PC and Steam Deck game library effortless, you can support ongoing development and maintenance:
 
-### 💳 Tribute (Банковские карты / Telegram)
-Быстрый и удобный способ поддержать автора любой банковской картой, через Telegram Stars или криптовалютой:
-* **Веб-версия (карты любых банков):** [web.tribute.tg/d/SsO](https://web.tribute.tg/d/SsO)
+### 💳 Tribute (Bank Cards / Telegram)
+A fast and flexible way to donate via any bank card, Telegram Stars, or cryptocurrency:
+* **Web (All bank cards / global):** [web.tribute.tg/d/SsO](https://web.tribute.tg/d/SsO)
 * **Telegram Mini App:** [t.me/tribute/app?startapp=dSsO](https://t.me/tribute/app?startapp=dSsO)
 
 [![Donate with Tribute](https://img.shields.io/badge/Donate-Tribute%20(Card%20%2F%20TG)-0088cc?style=for-the-badge&logo=telegram&logoColor=white)](https://web.tribute.tg/d/SsO)
 
 ---
 
-### 🪙 Криптовалюта / USDT (BEP20)
-Прямой перевод Tether USD в сети BNB Smart Chain (BSC):
+### 🪙 Cryptocurrency / USDT (BEP20)
+Direct transfer via BNB Smart Chain (BSC):
 
-| Параметр | Значение |
+| Parameter | Value |
 | :--- | :--- |
-| **Монета** | **Tether USD (USDT)** |
-| **Сеть** | **BNB Smart Chain (BSC / BEP20)** |
-| **Адрес депозита** | `0xb9e67030ab0f38d1d88e4eaa605fb2acf0aa0ba3` |
+| **Coin** | **Tether USD (USDT)** |
+| **Network** | **BNB Smart Chain (BSC / BEP20)** |
+| **Deposit Address** | `0xb9e67030ab0f38d1d88e4eaa605fb2acf0aa0ba3` |
 
 <div align="center">
   <br />
   <img src="Assets/donate_usdt_bep20.png" width="180" alt="USDT BEP20 QR Code" style="border-radius: 12px; background: #ffffff; padding: 6px;" />
   <br />
-  <sub><i>Сканируйте через Bybit, Binance, Trust Wallet, MetaMask, OKX или любой Web3 кошелек (сеть BSC BEP20)</i></sub>
+  <sub><i>Scan with Bybit, Binance, Trust Wallet, MetaMask, OKX, or any Web3 wallet (BSC BEP20 network)</i></sub>
 </div>
 
 ---
