@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('app_icon.ico', '.'), ('DeckBridge.ico', '.'), ('DeckBridge_logo.png', '.'), ('i18n.py', '.')]
+datas = [('app_icon.ico', '.'), ('DeckBridge.ico', '.'), ('DeckBridge_logo.png', '.'), ('i18n.py', '.'), ('Assets', 'Assets')]
 binaries = []
 hiddenimports = [
     'steam_syncer', 'steam_lifecycle', 'i18n', 'steam_vdf', 'artwork_scraper',

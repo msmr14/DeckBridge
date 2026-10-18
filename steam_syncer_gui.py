@@ -1500,6 +1500,70 @@ class CoverSelectorDialog(MessageBoxBase):
         return self.selected_cover_path
 
 
+class CryptoDonationDialog(MessageBoxBase):
+    """
+    Fluent dialog displaying cryptocurrency donation details, QR code,
+    and one-click clipboard copying.
+    """
+    USDT_ADDRESS = "0xb9e67030ab0f38d1d88e4eaa605fb2acf0aa0ba3"
+
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.widget.setMinimumWidth(440)
+        self.widget.setMaximumWidth(480)
+
+        self.titleLabel = SubtitleLabel(tr("dialog_qr_title"), self.widget)
+        self.viewLayout.addWidget(self.titleLabel)
+
+        self.descLabel = CaptionLabel(
+            "Tether USD (USDT)\n"
+            + tr("dialog_qr_network_notice"),
+            self.widget
+        )
+        self.descLabel.setWordWrap(True)
+        self.viewLayout.addWidget(self.descLabel)
+
+        # QR Code Display
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        qr_path = os.path.join(base_dir, "Assets", "donate_usdt_bep20.png")
+        if not os.path.isfile(qr_path):
+            qr_path = os.path.join(base_dir, "assets", "donate_usdt_bep20.png")
+
+        qr_container = QHBoxLayout()
+        qr_container.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_qr = QLabel(self.widget)
+        if os.path.isfile(qr_path):
+            pix = QPixmap(qr_path).scaled(180, 180, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            lbl_qr.setPixmap(pix)
+        lbl_qr.setFixedSize(180, 180)
+        lbl_qr.setStyleSheet("background: white; border-radius: 8px; padding: 4px;")
+        lbl_qr.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        qr_container.addWidget(lbl_qr)
+        self.viewLayout.addLayout(qr_container)
+
+        # Address box with copy button
+        addr_row = QHBoxLayout()
+        addr_row.setSpacing(8)
+        self.txt_addr = LineEdit(self.widget)
+        self.txt_addr.setText(self.USDT_ADDRESS)
+        self.txt_addr.setReadOnly(True)
+        self.btn_copy = PushButton(tr("btn_copy_usdt"), self.widget, FIF.COPY)
+
+        def on_copy():
+            cb = QApplication.clipboard()
+            if cb:
+                cb.setText(self.USDT_ADDRESS)
+            self.btn_copy.setText(tr("badge_copied"))
+
+        self.btn_copy.clicked.connect(on_copy)
+        addr_row.addWidget(self.txt_addr, 1)
+        addr_row.addWidget(self.btn_copy)
+        self.viewLayout.addLayout(addr_row)
+
+        self.yesButton.setText("OK")
+        self.cancelButton.hide()
+
+
 # ==============================================================================
 # Main Fluent Window
 # ==============================================================================
@@ -2440,9 +2504,66 @@ class MainWindow(FluentWindow):
         """)
         log_layout.addWidget(self.log_text)
 
-        layout.addWidget(self.log_card)
+        # Card 5: Support & Donations / Поддержать проект
+        self.donate_card = SimpleCardWidget(settings_container)
+        donate_layout = QVBoxLayout(self.donate_card)
+        donate_layout.setContentsMargins(18, 16, 18, 16)
+        donate_layout.setSpacing(12)
 
-        # Card 5: About DeckBridge
+        donate_header = QHBoxLayout()
+        donate_title_col = QVBoxLayout()
+        donate_title_col.setSpacing(2)
+        self.lbl_donate_title = SubtitleLabel(tr("sec_donate"), self.donate_card)
+        self.lbl_donate_title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.lbl_donate_desc = CaptionLabel(
+            tr("sec_donate_desc"),
+            self.donate_card
+        )
+        self.lbl_donate_desc.setWordWrap(True)
+        self.lbl_donate_desc.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        donate_title_col.addWidget(self.lbl_donate_title)
+        donate_title_col.addWidget(self.lbl_donate_desc)
+        donate_header.addLayout(donate_title_col, 1)
+        donate_layout.addLayout(donate_header)
+
+        # Row 1: Tribute Donation
+        tribute_row = QHBoxLayout()
+        self.btn_tribute = PrimaryPushButton(tr("btn_donate_tribute"), self.donate_card, FIF.HEART)
+        self.btn_tribute.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://web.tribute.tg/d/SsO")))
+        tribute_row.addWidget(self.btn_tribute)
+        tribute_row.addStretch(1)
+        donate_layout.addLayout(tribute_row)
+
+        # Row 2: Crypto Address with Copy & QR
+        crypto_row = QHBoxLayout()
+        crypto_row.setSpacing(8)
+
+        self.btn_copy_usdt = PushButton(tr("btn_copy_usdt"), self.donate_card, FIF.COPY)
+        def copy_usdt_address():
+            cb = QApplication.clipboard()
+            if cb:
+                cb.setText("0xb9e67030ab0f38d1d88e4eaa605fb2acf0aa0ba3")
+            self.show_toast("success", title=tr("sec_donate"), content=tr("toast_usdt_copied"), duration=3500)
+            self.btn_copy_usdt.setText(tr("badge_copied"))
+            QTimer.singleShot(2500, lambda: self.btn_copy_usdt.setText(tr("btn_copy_usdt")))
+
+        self.btn_copy_usdt.clicked.connect(copy_usdt_address)
+
+        self.btn_show_qr = PushButton(tr("btn_show_qr"), self.donate_card, FIF.QRCODE)
+        def show_qr_dialog():
+            dlg = CryptoDonationDialog(self)
+            dlg.exec()
+
+        self.btn_show_qr.clicked.connect(show_qr_dialog)
+
+        crypto_row.addWidget(self.btn_copy_usdt)
+        crypto_row.addWidget(self.btn_show_qr)
+        crypto_row.addStretch(1)
+        donate_layout.addLayout(crypto_row)
+
+        layout.addWidget(self.donate_card)
+
+        # Card 6: About DeckBridge
         self.about_card = SimpleCardWidget(settings_container)
         about_layout = QVBoxLayout(self.about_card)
         about_layout.setContentsMargins(18, 16, 18, 16)
@@ -2604,6 +2725,17 @@ class MainWindow(FluentWindow):
         if hasattr(self, 'btn_download_steam') and self.btn_download_steam:
             self.btn_download_steam.setText(tr("btn_download_steam"))
             self.btn_download_steam.setToolTip(tr("btn_download_steam"))
+
+        if hasattr(self, 'lbl_donate_title'):
+            self.lbl_donate_title.setText(tr("sec_donate"))
+        if hasattr(self, 'lbl_donate_desc'):
+            self.lbl_donate_desc.setText(tr("sec_donate_desc"))
+        if hasattr(self, 'btn_tribute'):
+            self.btn_tribute.setText(tr("btn_donate_tribute"))
+        if hasattr(self, 'btn_copy_usdt'):
+            self.btn_copy_usdt.setText(tr("btn_copy_usdt"))
+        if hasattr(self, 'btn_show_qr'):
+            self.btn_show_qr.setText(tr("btn_show_qr"))
 
         if getattr(self, 'lbl_metric_status', None):
             last_report = getattr(self, '_last_report', None)

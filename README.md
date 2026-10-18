@@ -10,6 +10,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011%20%7C%20Steam%20Deck-0078d4.svg)](https://www.microsoft.com/windows)
 [![UI: Windows 11 Fluent](https://img.shields.io/badge/UI-Fluent%20Design%20Acrylic-informational.svg)](https://github.com/zhiyiYo/PyQt-Fluent-Widgets)
+[![Donate: Tribute](https://img.shields.io/badge/Donate-Tribute%20%7C%20Crypto-ff69b4.svg)](https://web.tribute.tg/d/SsO)
 
 </div>
 
@@ -169,6 +170,37 @@ DeckBridge is architected for Microsoft Store and WindowsApps container complian
 DeckBridge values your privacy:
 - **Zero data collection**: No telemetry, no remote servers, no user tracking.
 - Read the complete [Privacy Policy](PRIVACY.md).
+
+---
+
+## ❤️ Support the Developer / Поддержать проект
+
+Если DeckBridge помогает вам легко и красиво организовывать библиотеку игр на ПК и Steam Deck, вы можете поддержать автора донатом на развитие проекта:
+
+### 💳 Tribute (Банковские карты / Telegram)
+Быстрый и удобный способ поддержать автора любой банковской картой, через Telegram Stars или криптовалютой:
+* **Веб-версия (карты любых банков):** [web.tribute.tg/d/SsO](https://web.tribute.tg/d/SsO)
+* **Telegram Mini App:** [t.me/tribute/app?startapp=dSsO](https://t.me/tribute/app?startapp=dSsO)
+
+[![Donate with Tribute](https://img.shields.io/badge/Donate-Tribute%20(Card%20%2F%20TG)-0088cc?style=for-the-badge&logo=telegram&logoColor=white)](https://web.tribute.tg/d/SsO)
+
+---
+
+### 🪙 Криптовалюта / USDT (BEP20)
+Прямой перевод Tether USD в сети BNB Smart Chain (BSC):
+
+| Параметр | Значение |
+| :--- | :--- |
+| **Монета** | **Tether USD (USDT)** |
+| **Сеть** | **BNB Smart Chain (BSC / BEP20)** |
+| **Адрес депозита** | `0xb9e67030ab0f38d1d88e4eaa605fb2acf0aa0ba3` |
+
+<div align="center">
+  <br />
+  <img src="Assets/donate_usdt_bep20.png" width="180" alt="USDT BEP20 QR Code" style="border-radius: 12px; background: #ffffff; padding: 6px;" />
+  <br />
+  <sub><i>Сканируйте через Bybit, Binance, Trust Wallet, MetaMask, OKX или любой Web3 кошелек (сеть BSC BEP20)</i></sub>
+</div>
 
 ---
 
