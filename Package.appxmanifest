@@ -14,7 +14,7 @@
   <Identity
     Name="DeckBridge"
     Publisher="CN=DeckBridgeSoftware"
-    Version="2.2.0.0" />
+    Version="1.0.0.0" />
 
   <Properties>
     <DisplayName>DeckBridge</DisplayName>

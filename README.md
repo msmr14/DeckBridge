@@ -4,6 +4,7 @@
 
 **Bridge non-Steam PC games seamlessly into Valve Steam, Big Picture, and Steam Deck with official high-resolution artwork.**
 
+[![Release](https://img.shields.io/github/v/release/msmr14/DeckBridge?color=success&label=release)](https://github.com/msmr14/DeckBridge/releases/latest)
 [![CI Test & Build](https://github.com/msmr14/DeckBridge/actions/workflows/build.yml/badge.svg)](https://github.com/msmr14/DeckBridge/actions/workflows/build.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
@@ -11,6 +12,16 @@
 [![UI: Windows 11 Fluent](https://img.shields.io/badge/UI-Fluent%20Design%20Acrylic-informational.svg)](https://github.com/zhiyiYo/PyQt-Fluent-Widgets)
 
 </div>
+
+---
+
+## 📥 Download DeckBridge 1.0.0 / Скачать
+
+| Package | Format | Target Platform | Link |
+| :--- | :--- | :--- | :--- |
+| **DeckBridge Portable** | `.zip` (Standalone) | Windows 10 & 11 (x64) | [DeckBridge-v1.0.0-Windows-x64.zip](https://github.com/msmr14/DeckBridge/releases/download/v1.0.0/DeckBridge-v1.0.0-Windows-x64.zip) |
+| **DeckBridge Sideload** | `.msix` (Signed) | Windows 10 & 11 (x64) | [DeckBridge_1.0.0.0_x64_signed.msix](https://github.com/msmr14/DeckBridge/releases/download/v1.0.0/DeckBridge_1.0.0.0_x64_signed.msix) |
+| **Microsoft Store** | `.msix` (Store Upload) | Partner Center Submission | [DeckBridge_1.0.0.0_x64.msix](https://github.com/msmr14/DeckBridge/releases/download/v1.0.0/DeckBridge_1.0.0.0_x64.msix) |
 
 ---
 

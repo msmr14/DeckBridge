@@ -41,6 +41,7 @@ covers_cache/
 *.msixupload
 *.appx
 *.appxupload
+*.zip
 msix_prep/
 
 # Temporary test captures and debug screenshots

@@ -20,8 +20,8 @@ from typing import List, Optional, Dict, Any, Tuple
 import requests
 from PIL import Image
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QTimer, QPropertyAnimation, QEasingCurve, QPointF, QEvent, QRectF
-from PyQt6.QtGui import QIcon, QPixmap, QPainter, QPainterPath, QColor, QTransform, QRadialGradient, QPen
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QTimer, QPropertyAnimation, QEasingCurve, QPointF, QEvent, QRectF, QUrl
+from PyQt6.QtGui import QIcon, QPixmap, QPainter, QPainterPath, QColor, QTransform, QRadialGradient, QPen, QDesktopServices
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
     QFileDialog, QListWidget, QListWidgetItem, QFrame,
@@ -44,6 +44,7 @@ import steam_syncer
 import i18n
 from i18n import tr
 
+APP_VERSION = "1.0.0"
 logger = logging.getLogger("SteamSyncerGUI")
 
 
@@ -2440,6 +2441,34 @@ class MainWindow(FluentWindow):
         log_layout.addWidget(self.log_text)
 
         layout.addWidget(self.log_card)
+
+        # Card 5: About DeckBridge
+        self.about_card = SimpleCardWidget(settings_container)
+        about_layout = QVBoxLayout(self.about_card)
+        about_layout.setContentsMargins(18, 16, 18, 16)
+        about_layout.setSpacing(12)
+
+        about_header = QHBoxLayout()
+        about_title_col = QVBoxLayout()
+        about_title_col.setSpacing(2)
+        self.lbl_about_title = SubtitleLabel(f"DeckBridge v{APP_VERSION}", self.about_card)
+        self.lbl_about_title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.lbl_about_desc = CaptionLabel(
+            "Non-Steam Game & Official Artwork Bridge for Windows 11 & Steam Deck. Licensed under GNU GPLv3.",
+            self.about_card
+        )
+        self.lbl_about_desc.setWordWrap(True)
+        self.lbl_about_desc.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        about_title_col.addWidget(self.lbl_about_title)
+        about_title_col.addWidget(self.lbl_about_desc)
+        about_header.addLayout(about_title_col, 1)
+
+        btn_github = PushButton("GitHub", self.about_card, FIF.GITHUB)
+        btn_github.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/msmr14/DeckBridge")))
+        about_header.addWidget(btn_github)
+        about_layout.addLayout(about_header)
+
+        layout.addWidget(self.about_card)
         layout.addStretch(1)
 
         settings_scroll_layout.addWidget(settings_container)
@@ -3497,7 +3526,7 @@ def main():
             pass
         try:
             import ctypes
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("DeckBridgeSoftware.DeckBridge.2.2")
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(f"DeckBridgeSoftware.DeckBridge.{APP_VERSION}")
         except Exception:
             pass
 
